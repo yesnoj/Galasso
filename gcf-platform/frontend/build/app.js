@@ -155,6 +155,39 @@ function togglePw(inputId, btn) {
   else { input.type = 'password'; btn.textContent = '👁'; }
 }
 
+function showConfirmModal(title, message, onConfirm) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-modal">
+      <div class="confirm-modal-icon">🌿</div>
+      <h3 class="confirm-modal-title">${title}</h3>
+      <p class="confirm-modal-text">${message}</p>
+      <div class="confirm-modal-actions">
+        <button class="btn btn-secondary" id="modal-cancel">Annulla</button>
+        <button class="btn btn-primary" id="modal-confirm">Conferma</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+  
+  overlay.querySelector('#modal-cancel').onclick = () => {
+    overlay.classList.remove('visible');
+    setTimeout(() => overlay.remove(), 200);
+  };
+  overlay.querySelector('#modal-confirm').onclick = () => {
+    overlay.remove();
+    onConfirm();
+  };
+  overlay.onclick = (e) => {
+    if (e.target === overlay) {
+      overlay.classList.remove('visible');
+      setTimeout(() => overlay.remove(), 200);
+    }
+  };
+}
+
 function translateAuditType(t) { return AUDIT_TYPE_LABELS[t] || t; }
 function translateAuditMode(m) { return AUDIT_MODE_LABELS[m] || m; }
 function translateOutcome(o) { return OUTCOME_LABELS[o] || o; }
@@ -190,13 +223,15 @@ async function login(email, password) {
 }
 
 function logout() {
-  if (state.token) api('/auth/logout', { method: 'POST' }).catch(() => {});
-  state.user = null;
-  state.token = null;
-  state.refreshToken = null;
-  localStorage.removeItem('gcf_token');
-  localStorage.removeItem('gcf_refresh');
-  navigate('login');
+  showConfirmModal('Vuoi davvero uscire?', 'La sessione corrente verrà terminata.', () => {
+    if (state.token) api('/auth/logout', { method: 'POST' }).catch(() => {});
+    state.user = null;
+    state.token = null;
+    state.refreshToken = null;
+    localStorage.removeItem('gcf_token');
+    localStorage.removeItem('gcf_refresh');
+    navigate('login');
+  });
 }
 
 async function loadUser() {
@@ -728,11 +763,57 @@ async function renderCertificationDetail(id) {
 }
 
 async function updateCertStatus(certId, status) {
-  const notes = status.includes('reject') ? prompt('Motivo:') : null;
+  if (status.includes('reject')) {
+    showInputModal('Motivo del rifiuto', 'Inserisci la motivazione per il rifiuto della certificazione.', 'Motivazione...', (notes) => {
+      doUpdateCertStatus(certId, status, notes);
+    });
+  } else {
+    doUpdateCertStatus(certId, status, null);
+  }
+}
+
+async function doUpdateCertStatus(certId, status, notes) {
   const result = await api(`/certifications/${certId}/status`, {
     method: 'PUT', body: JSON.stringify({ status, notes })
   });
   if (result) { toast('Stato aggiornato', 'success'); renderCertificationDetail(certId); }
+}
+
+function showInputModal(title, message, placeholder, onConfirm) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-modal" style="max-width:420px">
+      <div class="confirm-modal-icon">📝</div>
+      <h3 class="confirm-modal-title">${title}</h3>
+      <p class="confirm-modal-text">${message}</p>
+      <div style="text-align:left;margin-bottom:20px">
+        <textarea id="modal-input" rows="3" placeholder="${placeholder}" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;resize:vertical"></textarea>
+      </div>
+      <div class="confirm-modal-actions">
+        <button class="btn btn-secondary" id="modal-cancel">Annulla</button>
+        <button class="btn btn-primary" id="modal-confirm">Conferma</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+
+  overlay.querySelector('#modal-cancel').onclick = () => {
+    overlay.classList.remove('visible');
+    setTimeout(() => overlay.remove(), 200);
+  };
+  overlay.querySelector('#modal-confirm').onclick = () => {
+    const val = overlay.querySelector('#modal-input').value;
+    overlay.remove();
+    onConfirm(val);
+  };
+  overlay.onclick = (e) => {
+    if (e.target === overlay) {
+      overlay.classList.remove('visible');
+      setTimeout(() => overlay.remove(), 200);
+    }
+  };
 }
 
 async function createAudit(certId) {
@@ -921,19 +1002,58 @@ async function saveAuditEvaluations(auditId) {
 }
 
 async function completeAudit(auditId) {
-  if (!confirm('Sei sicuro di voler completare l\'audit? Questa azione non è reversibile.')) return;
-  
-  // Prima salva le valutazioni correnti
-  await saveAuditEvaluations(auditId);
+  showAuditCompleteModal(auditId);
+}
 
-  const orgRepName = prompt('Nome rappresentante organizzazione:');
-  const notes = prompt('Note finali auditor (opzionale):');
+function showAuditCompleteModal(auditId) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-modal" style="max-width:440px">
+      <div class="confirm-modal-icon">✅</div>
+      <h3 class="confirm-modal-title">Completare l'audit?</h3>
+      <p class="confirm-modal-text">Questa azione non è reversibile. L'esito verrà calcolato automaticamente.</p>
+      <div style="text-align:left;margin-bottom:20px">
+        <div class="form-group" style="margin-bottom:12px">
+          <label style="font-weight:600;font-size:13px;color:#333">Nome rappresentante organizzazione</label>
+          <input type="text" id="modal-org-rep" placeholder="es. Mario Bianchi" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px">
+        </div>
+        <div class="form-group">
+          <label style="font-weight:600;font-size:13px;color:#333">Note finali auditor (opzionale)</label>
+          <textarea id="modal-audit-notes" rows="3" placeholder="Eventuali osservazioni..." style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;resize:vertical"></textarea>
+        </div>
+      </div>
+      <div class="confirm-modal-actions">
+        <button class="btn btn-secondary" id="modal-cancel">Annulla</button>
+        <button class="btn btn-primary" id="modal-confirm">Completa audit</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('visible'));
 
-  const result = await api(`/audits/${auditId}/complete`, {
-    method: 'PUT',
-    body: JSON.stringify({ auditorNotes: notes, orgRepresentativeName: orgRepName })
-  });
-  if (result) { toast(`Audit completato — Esito: ${translateOutcome(result.outcome)}`, 'success'); renderAuditChecklist(auditId); }
+  overlay.querySelector('#modal-cancel').onclick = () => {
+    overlay.classList.remove('visible');
+    setTimeout(() => overlay.remove(), 200);
+  };
+  overlay.querySelector('#modal-confirm').onclick = async () => {
+    const orgRepName = overlay.querySelector('#modal-org-rep').value;
+    const notes = overlay.querySelector('#modal-audit-notes').value;
+    overlay.remove();
+
+    await saveAuditEvaluations(auditId);
+    const result = await api(`/audits/${auditId}/complete`, {
+      method: 'PUT',
+      body: JSON.stringify({ auditorNotes: notes, orgRepresentativeName: orgRepName })
+    });
+    if (result) { toast(`Audit completato — Esito: ${translateOutcome(result.outcome)}`, 'success'); renderAuditChecklist(auditId); }
+  };
+  overlay.onclick = (e) => {
+    if (e.target === overlay) {
+      overlay.classList.remove('visible');
+      setTimeout(() => overlay.remove(), 200);
+    }
+  };
 }
 
 async function downloadAuditPdf(auditId) {

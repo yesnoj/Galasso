@@ -205,3 +205,22 @@ tr:hover td { background: rgba(45,90,39,0.03); }
 .gap-1 { gap: 8px; } .gap-2 { gap: 16px; }
 .hidden { display: none !important; }
 .btn-eye { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px; line-height: 1; }
+
+/* Confirm Modal */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0); display: flex; align-items: center; justify-content: center;
+  z-index: 2000; transition: background 0.2s ease;
+}
+.modal-overlay.visible { background: rgba(0,0,0,0.5); }
+.modal-overlay.visible .confirm-modal { transform: scale(1); opacity: 1; }
+.confirm-modal {
+  background: white; border-radius: 16px; padding: 32px; width: 90%; max-width: 380px;
+  text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  transform: scale(0.9); opacity: 0; transition: all 0.2s ease;
+}
+.confirm-modal-icon { font-size: 40px; margin-bottom: 12px; }
+.confirm-modal-title { font-size: 20px; font-weight: 700; color: #1a1a1a; margin: 0 0 8px 0; }
+.confirm-modal-text { font-size: 14px; color: #666; margin: 0 0 24px 0; }
+.confirm-modal-actions { display: flex; gap: 12px; justify-content: center; }
+.confirm-modal-actions .btn { min-width: 120px; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 14px; }
