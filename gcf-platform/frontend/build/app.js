@@ -622,7 +622,7 @@ async function renderDashboard() {
           </table></div></div>
         </div>
       ` : ''}
-      <div class="card">
+      <div class="card" style="cursor:pointer" onclick="navigate('certifications')">
         <div class="card-header"><h3>Certificazioni per stato</h3></div>
         <div class="card-body">
           ${stats.certifications.byStatus.map(s => `<span class="mr-2">${badge(s.status)} ${s.count}</span> `).join('')}
