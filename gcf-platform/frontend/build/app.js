@@ -585,7 +585,7 @@ async function renderDashboard() {
           <div class="card-body"><div class="table-container"><table>
             <tr><th>Organizzazione</th><th>N. Certificato</th><th>Scadenza</th></tr>
             ${stats.certifications.expiringSoon.map(c => `
-              <tr><td>${sanitize(c.org_name)}</td><td>${c.cert_number}</td><td>${formatDate(c.expiry_date)}</td></tr>
+              <tr><td><a href="#organization-detail/${c.organization_id}" style="color:var(--primary)">${sanitize(c.org_name)}</a></td><td>${c.cert_number}</td><td>${formatDate(c.expiry_date)}</td></tr>
             `).join('')}
           </table></div></div>
         </div>
@@ -610,9 +610,9 @@ async function renderDashboard() {
         <div class="card-body">
           ${!audits || audits.length === 0 ? '<p class="text-muted">Nessun audit assegnato</p>' : `
             <div class="table-container"><table>
-              <tr><th>Organizzazione</th><th>Tipo</th><th>Data</th><th>Stato</th><th></th></tr>
+              <tr><th>Organizzazione</th><th>Tipo</th><th>Data</th><th>Stato</th><th>Azioni</th></tr>
               ${audits.map(a => `<tr>
-                <td>${sanitize(a.org_name)}</td>
+                <td><a href="#organization-detail/${a.organization_id}" style="color:var(--primary)">${sanitize(a.org_name)}</a></td>
                 <td>${translateAuditType(a.audit_type)}</td>
                 <td>${formatDate(a.scheduled_date || a.completed_date)}</td>
                 <td>${badge(a.status)}</td>
@@ -671,7 +671,7 @@ async function renderOrganizations() {
       <p>Crea la tua organizzazione per iniziare</p></div>`;
   } else {
     tableHtml = `<div class="table-container"><table>
-      <tr><th>Nome</th><th>Forma giuridica</th><th>Città</th><th>Stato</th><th></th></tr>
+      <tr><th>Nome</th><th>Forma giuridica</th><th>Città</th><th>Stato</th><th>Azioni</th></tr>
       ${orgs.map(o => `<tr>
         <td><strong><a href="#organization-detail/${o.id}" style="color:var(--primary)">${sanitize(o.name)}</a></strong></td>
         <td>${LEGAL_FORMS[o.legal_form] || o.legal_form}</td>
@@ -833,9 +833,9 @@ async function renderCertifications() {
   ` : `
     ${actions ? `<div class="mb-2">${actions}</div>` : ''}
     <div class="table-container"><table>
-      <tr><th>Organizzazione</th><th>N. Certificato</th><th>Stato</th><th>Data domanda</th><th>Scadenza</th><th></th></tr>
+      <tr><th>Organizzazione</th><th>N. Certificato</th><th>Stato</th><th>Data domanda</th><th>Scadenza</th><th>Azioni</th></tr>
       ${certs.map(c => `<tr>
-        <td>${sanitize(c.org_name)}</td>
+        <td><a href="#organization-detail/${c.organization_id}" style="color:var(--primary)">${sanitize(c.org_name)}</a></td>
         <td>${c.cert_number || '—'}</td>
         <td>${badge(c.status)}</td>
         <td>${formatDate(c.application_date)}</td>
@@ -914,7 +914,7 @@ async function renderCertificationDetail(id) {
       <div class="card-header"><h3>Certificazione ${cert.cert_number || ''}</h3></div>
       <div class="card-body">
         <div class="form-row">
-          <div><strong>Organizzazione:</strong> ${sanitize(cert.org_name)}</div>
+          <div><strong>Organizzazione:</strong> <a href="#organization-detail/${cert.organization_id}" style="color:var(--primary)">${sanitize(cert.org_name)}</a></div>
           <div><strong>Stato:</strong> ${badge(cert.status)}</div>
         </div>
         <div class="form-row mt-1">
@@ -936,7 +936,7 @@ async function renderCertificationDetail(id) {
       <div class="card">
         <div class="card-header"><h3>Audit associati</h3></div>
         <div class="card-body"><div class="table-container"><table>
-          <tr><th>Tipo</th><th>Data</th><th>Stato</th><th>Esito</th><th></th></tr>
+          <tr><th>Tipo</th><th>Data</th><th>Stato</th><th>Esito</th><th>Azioni</th></tr>
           ${cert.audits.map(a => `<tr>
             <td>${translateAuditType(a.audit_type)}</td><td>${formatDate(a.scheduled_date || a.completed_date)}</td>
             <td>${badge(a.status)}</td><td>${a.outcome ? translateOutcome(a.outcome) : '—'}</td>
@@ -1155,9 +1155,9 @@ async function renderAudits() {
     <div class="empty-state"><div class="icon">✅</div><h3>Nessun audit</h3></div>
   ` : `
     <div class="table-container"><table>
-      <tr><th>Organizzazione</th><th>Tipo</th><th>Data</th><th>Stato</th><th>Esito</th><th></th></tr>
+      <tr><th>Organizzazione</th><th>Tipo</th><th>Data</th><th>Stato</th><th>Esito</th><th>Azioni</th></tr>
       ${audits.map(a => `<tr>
-        <td>${sanitize(a.org_name)}</td>
+        <td><a href="#organization-detail/${a.organization_id}" style="color:var(--primary)">${sanitize(a.org_name)}</a></td>
         <td>${translateAuditType(a.audit_type)}</td>
         <td>${formatDate(a.scheduled_date || a.completed_date)}</td>
         <td>${badge(a.status)}</td>
@@ -1429,7 +1429,7 @@ async function renderBeneficiaries() {
         <tr><th>Codice</th><th>Organizzazione</th><th>Tipologia</th><th>Stato</th><th>Ente inviante</th><th>Attività</th>${canAdd ? '<th>Azioni</th>' : ''}</tr>
         ${bens.map(b => `<tr>
           <td><strong>${sanitize(b.code)}</strong></td>
-          <td>${sanitize(b.org_name)}</td>
+          <td><a href="#organization-detail/${b.organization_id}" style="color:var(--primary)">${sanitize(b.org_name)}</a></td>
           <td>${TARGET_LABELS[b.target_type] || b.target_type || '—'}</td>
           <td>${badge(b.status)}</td>
           <td>${sanitize(b.referring_entity) || '—'}</td>
@@ -1502,7 +1502,7 @@ async function renderActivities() {
         <tr><th>Data</th><th>Organizzazione</th><th>Beneficiario</th><th>Servizio</th><th>Durata</th><th>Descrizione</th>${canAdd ? '<th>Azioni</th>' : ''}</tr>
         ${activities.map(a => `<tr>
           <td>${formatDate(a.activity_date)}</td>
-          <td>${sanitize(a.org_name)}</td>
+          <td><a href="#organization-detail/${a.organization_id}" style="color:var(--primary)">${sanitize(a.org_name)}</a></td>
           <td>${sanitize(a.beneficiary_code) || 'Gruppo'}</td>
           <td>${SERVICE_LABELS[a.service_type] || a.service_type || '—'}</td>
           <td>${a.duration_minutes ? (a.duration_minutes / 60).toFixed(1).replace('.0','') + ' h' : '—'}</td>
@@ -1726,6 +1726,7 @@ async function renderOrganizationDetail(id) {
       <div class="card-body">
         ${bens.length === 0 ? '<p class="text-muted">Nessun beneficiario registrato</p>' : `
           <div class="table-container"><table>
+            <colgroup><col style="width:15%"><col style="width:22%"><col style="width:20%"><col style="width:18%"><col style="width:25%"></colgroup>
             <tr><th>Codice</th><th>Tipologia</th><th>Stato</th><th>Ente inviante</th><th>Attività</th></tr>
             ${bens.map(b => `<tr>
               <td><strong>${sanitize(b.code)}</strong></td>
@@ -1744,6 +1745,7 @@ async function renderOrganizationDetail(id) {
       <div class="card-body">
         ${activities.length === 0 ? '<p class="text-muted">Nessuna attività registrata</p>' : `
           <div class="table-container"><table>
+            <colgroup><col style="width:15%"><col style="width:22%"><col style="width:20%"><col style="width:18%"><col style="width:25%"></colgroup>
             <tr><th>Data</th><th>Beneficiario</th><th>Servizio</th><th>Durata</th><th>Descrizione</th></tr>
             ${activities.slice(0, 20).map(a => `<tr>
               <td>${formatDate(a.activity_date)}</td>
@@ -2051,20 +2053,24 @@ async function renderAdminUsers() {
   if (!users) return;
 
   $('#page-content').innerHTML = `
-    <div class="mb-2"><button class="btn btn-primary" onclick="showCreateUserModal()">➕ Nuovo utente</button></div>
+    <div class="mb-2"><button class="btn btn-primary" onclick="showCreateUserModal()">+ Nuovo utente</button></div>
     <div class="table-container"><table>
-      <tr><th>Nome</th><th>Email</th><th>Ruolo</th><th>Organizzazione</th><th>Attivo</th><th>Ultimo accesso</th><th>Azioni</th></tr>
+      <tr><th>Nome</th><th>Email</th><th>Ruolo</th><th>Organizzazione</th><th>Stato</th><th>Ultimo accesso</th><th>Azioni</th></tr>
       ${users.map(u => `<tr>
         <td>${sanitize(u.first_name)} ${sanitize(u.last_name)}</td>
         <td>${u.email}</td>
         <td><span class="badge badge-info">${ROLE_LABELS[u.role] || u.role}</span></td>
         <td>${u.organization_name ? sanitize(u.organization_name) : '<span style="color:#999">—</span>'}</td>
-        <td>${u.is_active ? '✅' : '❌'}</td>
+        <td>
+          <select onchange="toggleUserActive('${u.id}', this.value==='1' ? 1 : 0)" style="padding:4px 8px;border-radius:6px;border:1px solid #ddd;font-size:13px">
+            <option value="1" ${u.is_active ? 'selected' : ''}>✅ Attivo</option>
+            <option value="0" ${!u.is_active ? 'selected' : ''}>❌ Disattivato</option>
+          </select>
+        </td>
         <td>${formatDate(u.last_login)}</td>
         <td><div style="display:flex;gap:4px;flex-wrap:nowrap">
           <button class="btn btn-secondary btn-sm" onclick="showEditUserModal('${u.id}','${sanitize(u.first_name)}','${sanitize(u.last_name)}','${u.email}','${u.role}','${u.phone||''}',${u.is_active})">✏️</button>
           <button class="btn btn-secondary btn-sm" onclick="showResetPasswordModal('${u.id}','${u.email}')">🔑</button>
-          <button class="btn btn-sm ${u.is_active ? 'btn-danger' : 'btn-primary'}" onclick="toggleUserActive('${u.id}',${u.is_active ? 0 : 1})">${u.is_active ? '🔒' : '🔓'}</button>
         </div></td>
       </tr>`).join('')}
     </table></div>
@@ -2282,11 +2288,8 @@ async function showEditUserModal(id, fn, ln, email, role, phone, isActive) {
 }
 
 async function toggleUserActive(id, newState) {
-  const action = newState ? 'attivare' : 'disattivare';
-  showConfirmModal(`${newState ? 'Attivare' : 'Disattivare'} utente?`, `Sei sicuro di voler ${action} questo utente?`, async () => {
-    const result = await api(`/admin/users/${id}`, { method: 'PUT', body: JSON.stringify({ isActive: newState }) });
-    if (result) { toast(`Utente ${newState ? 'attivato' : 'disattivato'}!`, 'success'); renderAdminUsers(); }
-  });
+  const result = await api(`/admin/users/${id}`, { method: 'PUT', body: JSON.stringify({ isActive: newState }) });
+  if (result) { toast(`Utente ${newState ? 'attivato' : 'disattivato'}`, 'success'); }
 }
 
 function showResetPasswordModal(id, email) {

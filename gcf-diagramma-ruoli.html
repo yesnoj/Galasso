@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GCF Platform — Diagramma Interattivo Ruoli e Flussi</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f0f4f0; color: #333; }
+
+  .header { background: linear-gradient(135deg, #1b5e20, #388e3c); color: white; padding: 32px 24px; text-align: center; }
+  .header h1 { font-size: 28px; margin-bottom: 6px; }
+  .header p { opacity: 0.85; font-size: 15px; }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
+
+  /* ===== ROLE SELECTOR ===== */
+  .role-bar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 32px; }
+  .role-btn {
+    padding: 12px 22px; border-radius: 50px; border: 2px solid #c8e6c9; background: white;
+    cursor: pointer; font-size: 14px; font-weight: 600; transition: all .2s; user-select: none;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .role-btn:hover { border-color: #66bb6a; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+  .role-btn.active { background: #2e7d32; color: white; border-color: #2e7d32; box-shadow: 0 4px 16px rgba(46,125,50,.3); }
+  .role-btn .emoji { font-size: 20px; }
+
+  /* ===== FLOW AREA ===== */
+  .flow-area { display: flex; flex-direction: column; gap: 20px; }
+
+  .section-card {
+    background: white; border-radius: 16px; overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,.06); border: 1px solid #e8e8e8;
+    transition: all .3s;
+  }
+  .section-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.1); }
+  .section-header {
+    padding: 16px 20px; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+    user-select: none; transition: background .2s;
+  }
+  .section-header:hover { background: #f9f9f9; }
+  .section-header h3 { font-size: 17px; display: flex; align-items: center; gap: 10px; }
+  .section-header .badge-count {
+    background: #e8f5e9; color: #2e7d32; font-size: 12px; padding: 3px 10px;
+    border-radius: 20px; font-weight: 600;
+  }
+  .section-header .arrow { font-size: 18px; transition: transform .3s; color: #999; }
+  .section-header .arrow.open { transform: rotate(180deg); }
+
+  .section-body { padding: 0 20px 20px; display: none; }
+  .section-body.open { display: block; }
+
+  /* ===== ACTION NODES ===== */
+  .action-flow { display: flex; flex-wrap: wrap; gap: 10px; }
+  .action-node {
+    padding: 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all .2s; position: relative;
+    border: 1px solid transparent; display: flex; align-items: center; gap: 6px;
+  }
+  .action-node:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+  .action-node.create { background: #e8f5e9; color: #1b5e20; border-color: #a5d6a7; }
+  .action-node.read { background: #e3f2fd; color: #0d47a1; border-color: #90caf9; }
+  .action-node.update { background: #fff8e1; color: #e65100; border-color: #ffe082; }
+  .action-node.delete { background: #fce4ec; color: #b71c1c; border-color: #ef9a9a; }
+  .action-node.action { background: #f3e5f5; color: #4a148c; border-color: #ce93d8; }
+  .action-node.download { background: #e0f2f1; color: #004d40; border-color: #80cbc4; }
+  .action-node.navigate { background: #f5f5f5; color: #424242; border-color: #e0e0e0; }
+
+  .action-node.active { box-shadow: 0 0 0 3px rgba(46,125,50,.4); transform: translateY(-2px); }
+
+  /* ===== DETAIL PANEL ===== */
+  .detail-panel {
+    margin-top: 10px; padding: 16px; background: #fafafa; border-radius: 12px;
+    border: 1px solid #e0e0e0; display: none; animation: slideIn .2s ease;
+  }
+  .detail-panel.open { display: block; }
+  .detail-panel h4 { font-size: 15px; margin-bottom: 8px; color: #2e7d32; }
+  .detail-panel p { font-size: 13px; line-height: 1.6; color: #555; }
+  .detail-panel .step-list { list-style: none; padding: 0; margin: 8px 0 0; }
+  .detail-panel .step-list li {
+    padding: 6px 0 6px 24px; position: relative; font-size: 13px; color: #444;
+  }
+  .detail-panel .step-list li::before {
+    content: ''; position: absolute; left: 8px; top: 14px;
+    width: 8px; height: 8px; border-radius: 50%; background: #66bb6a;
+  }
+  .detail-panel .step-list li::after {
+    content: ''; position: absolute; left: 11px; top: 22px;
+    width: 2px; height: calc(100% - 8px); background: #c8e6c9;
+  }
+  .detail-panel .step-list li:last-child::after { display: none; }
+
+  /* ===== LEGEND ===== */
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-bottom: 24px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #666; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 4px; }
+
+  /* ===== CERTIFICATION FLOW ===== */
+  .cert-flow { margin-top: 16px; }
+  .cert-flow-steps {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 4px; padding: 12px 0;
+  }
+  .cert-step {
+    padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+    background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7;
+    cursor: pointer; transition: all .2s; position: relative;
+  }
+  .cert-step:hover { background: #c8e6c9; }
+  .cert-step.active { background: #2e7d32; color: white; }
+  .cert-step.disabled { opacity: .4; cursor: default; }
+  .cert-arrow { color: #aaa; font-size: 16px; font-weight: bold; }
+  .cert-actor { font-size: 11px; color: #888; text-align: center; display: block; margin-top: 2px; }
+
+  /* ===== PUBLIC FLOW ===== */
+  .public-section { background: linear-gradient(135deg, #e8f5e9, #f1f8e9); border: 2px dashed #a5d6a7; }
+
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+
+  @media (max-width: 600px) {
+    .role-btn { padding: 10px 16px; font-size: 13px; }
+    .cert-flow-steps { flex-direction: column; align-items: flex-start; }
+    .cert-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🌿 GCF Platform — Mappa Interattiva</h1>
+  <p>Seleziona un ruolo per esplorare tutte le azioni disponibili. Clicca sulle azioni per i dettagli.</p>
+</div>
+
+<div class="container">
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#e8f5e9;border:1px solid #a5d6a7"></div> Crea</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#e3f2fd;border:1px solid #90caf9"></div> Visualizza</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fff8e1;border:1px solid #ffe082"></div> Modifica</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fce4ec;border:1px solid #ef9a9a"></div> Elimina</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f3e5f5;border:1px solid #ce93d8"></div> Azione</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#e0f2f1;border:1px solid #80cbc4"></div> Download</div>
+  </div>
+
+  <!-- Role selector -->
+  <div class="role-bar" id="role-bar"></div>
+
+  <!-- Flow area -->
+  <div class="flow-area" id="flow-area"></div>
+</div>
+
+<script>
+const ROLES = [
+  { id: 'public', label: 'Visitatore', emoji: '🌐', desc: 'Senza login' },
+  { id: 'admin', label: 'Amministratore', emoji: '🛡️', desc: 'Accesso completo' },
+  { id: 'auditor', label: 'Auditor', emoji: '🔍', desc: 'Verifica conformità' },
+  { id: 'org_admin', label: 'Admin Org.', emoji: '🏠', desc: 'Gestisce organizzazione' },
+  { id: 'org_operator', label: 'Operatore', emoji: '👷', desc: 'Operatività quotidiana' },
+  { id: 'ente_referente', label: 'Ente Referente', emoji: '🏛️', desc: 'Monitoraggio' },
+];
+
+const DATA = {
+  public: [
+    { section: '🌐 Accesso Pubblico (senza login)', actions: [
+      { name: 'Registro Pubblico', type: 'read', detail: 'Consulta l\'elenco delle organizzazioni certificate Green Care Farm — AICARE.', steps: ['Accedi dalla pagina di login → "Registro Pubblico"', 'Visualizza lista organizzazioni certificate', 'Filtra per regione, provincia, servizio', 'Apri scheda organizzazione'] },
+      { name: 'Dettaglio organizzazione', type: 'read', detail: 'Visualizza informazioni complete, servizi, recensioni e contatti dell\'organizzazione.', steps: ['Clicca su un\'organizzazione nel registro', 'Vedi servizi, target, contatti', 'Leggi le recensioni approvate', 'Vedi certificazione attiva'] },
+      { name: 'Login', type: 'navigate', detail: 'Accedi con email e password per sbloccare le funzionalità del tuo ruolo.', steps: ['Inserisci email e password', 'Clicca "Accedi"', 'Verrai reindirizzato alla Dashboard'] },
+      { name: 'Registrazione', type: 'create', detail: 'Crea un nuovo account scegliendo ruolo, email, password con conferma e telefono con prefisso.', steps: ['Clicca "Registrati" dalla pagina login', 'Compila nome, cognome, email (validata)', 'Password + conferma (min 8 car., visibilità toggle)', 'Telefono con prefisso internazionale', 'Scegli ruolo: Resp. Org / Ente Ref. / Pubblico', 'Clicca "Registrati"'] },
+    ]},
+  ],
+
+  admin: [
+    { section: '📊 Dashboard', actions: [
+      { name: 'Dashboard generale', type: 'read', detail: 'Panoramica con statistiche cliccabili: organizzazioni, certificazioni, audit, beneficiari, attività, ore, utenti.', steps: ['Ogni card numerica è cliccabile', 'Porta alla sezione corrispondente'] },
+      { name: 'Dashboard Admin', type: 'read', detail: 'Riepilogo avanzato con organizzazioni per stato e utenti per ruolo.', steps: ['Vai su ⚙️ Dashboard Admin nel menu', 'Vedi organizzazioni per stato', 'Vedi utenti per ruolo'] },
+    ]},
+    { section: '🏠 Organizzazioni', actions: [
+      { name: 'Lista organizzazioni', type: 'read', detail: 'Tutte le organizzazioni con nome, forma giuridica, città e stato.', steps: ['Vai su 🏠 Organizzazioni', 'Vedi tutte (incluse "In attesa")'] },
+      { name: 'Nuova organizzazione', type: 'create', detail: 'Form completo con provincia (picklist 107), regione auto, telefono con prefisso, email validata.', steps: ['Clicca "+ Nuova organizzazione"', 'Compila tutti i campi', 'Provincia → Regione auto', 'Email validata, telefono con prefisso', 'Clicca "Crea"'] },
+      { name: 'Modifica organizzazione', type: 'update', detail: 'Modifica qualsiasi dato dell\'organizzazione.', steps: ['Clicca ✏️ nella riga', 'Modifica i campi', 'Salva'] },
+      { name: 'Cambia stato', type: 'action', detail: 'Passa lo stato tra: In attesa → Attiva → Sospesa → Revocata tramite picklist.', steps: ['Usa il menu a tendina nella colonna "Stato"', 'Seleziona: ⏳ In attesa / ✅ Attiva / ⚠️ Sospesa / ❌ Revocata', 'Aggiornamento immediato'] },
+      { name: 'Dettaglio organizzazione', type: 'read', detail: 'Vista completa con beneficiari e attività collegate.', steps: ['Clicca sul nome dell\'organizzazione', 'Vedi dati, beneficiari, ultime 20 attività'] },
+    ]},
+    { section: '📜 Certificazioni', actions: [
+      { name: 'Lista certificazioni', type: 'read', detail: 'Tutte le certificazioni con stato corrente.' },
+      { name: 'Revisione documenti', type: 'action', detail: 'Avvia la revisione dei documenti PDF allegati dall\'organizzazione.', steps: ['Apri Dettaglio certificazione', 'Clicca "Avvia revisione documenti"', 'Scarica e verifica i PDF allegati', 'Approva o Respingi documenti'] },
+      { name: 'Scarica documenti PDF', type: 'download', detail: 'Scarica i PDF caricati dall\'organizzazione.', steps: ['Vai su Dettaglio certificazione', 'Clicca ⬇️ su ogni documento'] },
+      { name: 'Elimina documenti', type: 'delete', detail: 'Rimuovi documenti durante la revisione.', steps: ['Clicca 🗑️ sul documento', 'Conferma eliminazione'] },
+      { name: 'Carica documenti', type: 'create', detail: 'Carica PDF aggiuntivi durante la revisione.', steps: ['Clicca 📎 Carica documento', 'Seleziona file PDF (max 10MB)', 'Upload automatico'] },
+      { name: 'Pianifica audit', type: 'create', detail: 'Crea un audit assegnando l\'auditor.', steps: ['Dalla certificazione approvata', 'Clicca "Pianifica audit"', 'Seleziona auditor, tipo, modalità, data', 'Conferma'] },
+      { name: 'Rilascia certificato', type: 'action', detail: 'Rilascia il certificato finale con numero e scadenza 3 anni.', steps: ['Dopo audit completato positivo', 'Clicca "Rilascia certificato"', 'Inserisci numero certificato', 'Certificato generato con scadenza 3 anni'] },
+      { name: 'Scarica Certificato PDF', type: 'download', detail: 'Scarica il certificato ufficiale in PDF.' },
+    ]},
+    { section: '✅ Audit', actions: [
+      { name: 'Lista audit', type: 'read', detail: 'Tutti gli audit con stato, organizzazione e auditor.' },
+      { name: 'Compila checklist', type: 'update', detail: '10 requisiti in 5 aree: C / PC / NC / NA con note ed evidenze.', steps: ['Apri checklist dall\'audit', 'Per ogni requisito: valutazione + note + evidenze', 'Area 1: Identità e trasparenza (2 req.)', 'Area 2: Gestione attività sociali (3 req.)', 'Area 3: Sicurezza e tutela (2 req.)', 'Area 4: Competenze e organizzazione (2 req.)', 'Area 5: Impegno alla qualità (1 req.)', 'Salva valutazioni', 'Completa audit → esito automatico'] },
+      { name: 'Scarica Report Audit PDF', type: 'download', detail: 'PDF con checklist completa, valutazioni e azioni correttive.' },
+    ]},
+    { section: '👥 Beneficiari e 📋 Attività', actions: [
+      { name: 'Lista beneficiari', type: 'read', detail: 'Tutti i beneficiari di tutte le organizzazioni.' },
+      { name: 'Nuovo beneficiario', type: 'create', detail: 'Registra un nuovo beneficiario con codice, tipologia, ente inviante.', steps: ['Clicca "+ Nuovo beneficiario"', 'Seleziona organizzazione', 'Inserisci codice, tipologia, ente', 'Data inizio, note', 'Crea'] },
+      { name: 'Modifica beneficiario', type: 'update', detail: 'Modifica stato, tipologia, ente, note.' },
+      { name: 'Elimina beneficiario', type: 'delete', detail: 'Solo se non ha attività collegate.' },
+      { name: 'Lista attività', type: 'read', detail: 'Tutte le attività con durata in ore.' },
+      { name: 'Registra attività', type: 'create', detail: 'Data, durata (ore, step 0.5), servizio, descrizione.', steps: ['Clicca "+ Registra attività"', 'Seleziona beneficiario', 'Data, durata in ore (es. 2, 1.5)', 'Tipo servizio, descrizione, note', 'Registra'] },
+      { name: 'Modifica attività', type: 'update', detail: 'Modifica qualsiasi campo.' },
+      { name: 'Elimina attività', type: 'delete', detail: 'Eliminazione con conferma.' },
+    ]},
+    { section: '👤 Utenti e ⭐ Recensioni', actions: [
+      { name: 'Lista utenti', type: 'read', detail: 'Tutti gli utenti con ruolo, organizzazione, stato e ultimo accesso.' },
+      { name: 'Nuovo utente', type: 'create', detail: 'Email, password x2, telefono con prefisso, ruolo, organizzazione.', steps: ['Clicca "+ Nuovo utente"', 'Nome, Cognome, Email (validata)', 'Password + conferma (check real-time)', 'Telefono con prefisso', 'Ruolo + organizzazione (se org_admin/operator)', 'Crea'] },
+      { name: 'Modifica utente', type: 'update', detail: 'Cambia nome, telefono, ruolo, organizzazione.' },
+      { name: 'Attiva / Disattiva', type: 'action', detail: 'Picklist nella colonna Stato: ✅ Attivo / ❌ Disattivato.' },
+      { name: 'Reset password', type: 'action', detail: 'Imposta nuova password con conferma e check real-time.' },
+      { name: 'Modera recensioni', type: 'action', detail: 'Approva (✅) o rifiuta (🚫) le recensioni in attesa.', steps: ['Vai su ⭐ Recensioni', 'Vedi autore, stelle, commento', 'Approva → pubblicata nel Registro', 'Rifiuta → eliminata definitivamente'] },
+    ]},
+    { section: '🔧 Profilo personale', actions: [
+      { name: 'Modifica profilo', type: 'update', detail: 'Cambia nome, cognome, telefono.' },
+      { name: 'Cambia password', type: 'action', detail: 'Password attuale + nuova + conferma con check real-time.' },
+    ]},
+  ],
+
+  auditor: [
+    { section: '📊 Dashboard', actions: [
+      { name: 'Dashboard', type: 'read', detail: 'Audit assegnati, completati e prossimi.' },
+    ]},
+    { section: '✅ Audit', actions: [
+      { name: 'I miei audit', type: 'read', detail: 'Lista degli audit assegnati con stato e scadenze.' },
+      { name: 'Compila checklist', type: 'update', detail: '10 requisiti, 5 aree. Valutazioni C/PC/NC/NA con note ed evidenze.', steps: ['Apri checklist', 'Valuta ogni requisito', 'Inserisci note ed evidenze', 'Salva progressi', 'Completa audit → esito calcolato'] },
+      { name: 'Scarica Report PDF', type: 'download', detail: 'Report completo dell\'audit in PDF.' },
+    ]},
+    { section: '🗂️ Altro', actions: [
+      { name: 'Registro Pubblico', type: 'read', detail: 'Consulta il registro delle organizzazioni certificate.' },
+      { name: 'Modifica profilo', type: 'update', detail: 'Cambia dati personali e password.' },
+    ]},
+  ],
+
+  org_admin: [
+    { section: '📊 Dashboard', actions: [
+      { name: 'Dashboard', type: 'read', detail: 'Statistiche della propria organizzazione.' },
+    ]},
+    { section: '🏠 Organizzazione', actions: [
+      { name: 'Visualizza organizzazione', type: 'read', detail: 'Dati della propria organizzazione.' },
+      { name: 'Modifica organizzazione', type: 'update', detail: 'Modifica dati, provincia (picklist), regione auto, email validata, telefono con prefisso.' },
+    ]},
+    { section: '📜 Certificazioni', actions: [
+      { name: 'Richiedi certificazione', type: 'create', detail: 'Invia domanda con upload documenti PDF.', steps: ['Vai su Certificazioni', 'Clicca "Richiedi certificazione"', 'Seleziona file PDF da allegare', 'Verifica lista file', 'Invia domanda'] },
+      { name: 'Carica documenti aggiuntivi', type: 'create', detail: 'Aggiungi PDF dalla pagina Dettaglio durante la revisione.' },
+      { name: 'Stato certificazione', type: 'read', detail: 'Segui lo stato della domanda: Inviata → Revisione → Audit → Rilascio.' },
+      { name: 'Scarica Certificato PDF', type: 'download', detail: 'Scarica il certificato rilasciato.' },
+    ]},
+    { section: '👥 Beneficiari e 📋 Attività', actions: [
+      { name: 'Gestisci beneficiari', type: 'create', detail: 'Aggiungi, modifica, elimina beneficiari della propria organizzazione.' },
+      { name: 'Registra attività', type: 'create', detail: 'Registra attività in ore (step 0.5) per i propri beneficiari.' },
+      { name: 'Modifica attività', type: 'update', detail: 'Modifica durata, servizio, descrizione.' },
+      { name: 'Elimina attività', type: 'delete', detail: 'Elimina attività con conferma.' },
+    ]},
+    { section: '🗂️ Altro', actions: [
+      { name: 'Registro Pubblico', type: 'read', detail: 'Consulta e lascia recensioni.' },
+      { name: 'Scrivi recensione', type: 'create', detail: 'Valuta un\'organizzazione con stelle e commento (moderata dall\'admin).' },
+      { name: 'Modifica profilo', type: 'update', detail: 'Cambia dati personali e password.' },
+    ]},
+  ],
+
+  org_operator: [
+    { section: '📊 Dashboard', actions: [
+      { name: 'Dashboard', type: 'read', detail: 'Statistiche della propria organizzazione.' },
+    ]},
+    { section: '🏠 Organizzazione', actions: [
+      { name: 'Visualizza organizzazione', type: 'read', detail: 'Dati della propria organizzazione.' },
+      { name: 'Modifica organizzazione', type: 'update', detail: 'Modifica dati organizzazione.' },
+    ]},
+    { section: '👥 Beneficiari e 📋 Attività', actions: [
+      { name: 'Gestisci beneficiari', type: 'create', detail: 'Aggiungi, modifica, elimina beneficiari.' },
+      { name: 'Registra attività', type: 'create', detail: 'Registra attività quotidiane in ore.' },
+      { name: 'Modifica attività', type: 'update', detail: 'Modifica qualsiasi campo dell\'attività.' },
+      { name: 'Elimina attività', type: 'delete', detail: 'Elimina con conferma.' },
+      { name: 'Carica documenti cert.', type: 'create', detail: 'Carica PDF per certificazione durante la revisione.' },
+    ]},
+    { section: '🗂️ Altro', actions: [
+      { name: 'Registro Pubblico', type: 'read', detail: 'Consulta il registro.' },
+      { name: 'Modifica profilo', type: 'update', detail: 'Cambia dati personali e password.' },
+    ]},
+  ],
+
+  ente_referente: [
+    { section: '📊 Dashboard', actions: [
+      { name: 'Dashboard', type: 'read', detail: 'Panoramica generale.' },
+    ]},
+    { section: '👥 Monitoraggio', actions: [
+      { name: 'Visualizza beneficiari', type: 'read', detail: 'Solo visualizzazione dei beneficiari associati. Nessuna modifica possibile.' },
+      { name: 'Crea report monitoraggio', type: 'create', detail: 'Report con periodo, note progresso, criticità, prossimi passi.' },
+    ]},
+    { section: '🗂️ Altro', actions: [
+      { name: 'Registro Pubblico', type: 'read', detail: 'Consulta il registro.' },
+      { name: 'Modifica profilo', type: 'update', detail: 'Cambia dati personali e password.' },
+    ]},
+  ],
+};
+
+// ===== CERTIFICATION FLOW =====
+const CERT_FLOW = [
+  { label: 'INVIATA', actor: 'Organizzazione', detail: 'L\'organizzazione invia la domanda con documenti PDF allegati' },
+  { label: 'REVISIONE DOC.', actor: 'Admin', detail: 'L\'admin scarica e verifica i documenti allegati' },
+  { label: 'DOC. APPROVATI', actor: 'Admin', detail: 'I documenti sono conformi e completi' },
+  { label: 'AUDIT PIANIFICATO', actor: 'Admin', detail: 'L\'admin crea l\'audit e assegna un auditor' },
+  { label: 'AUDIT COMPLETATO', actor: 'Auditor', detail: 'L\'auditor compila la checklist con 10 requisiti' },
+  { label: 'APPROVATA', actor: 'Admin', detail: 'L\'admin approva la certificazione' },
+  { label: 'RILASCIATA', actor: 'Admin', detail: 'Certificato rilasciato con numero e scadenza 3 anni' },
+];
+
+let activeRole = 'admin';
+let openSections = new Set();
+let activeAction = null;
+
+function render() {
+  // Roles
+  document.getElementById('role-bar').innerHTML = ROLES.map(r => `
+    <div class="role-btn ${r.id === activeRole ? 'active' : ''}" onclick="selectRole('${r.id}')">
+      <span class="emoji">${r.emoji}</span>
+      <div><div>${r.label}</div><div style="font-size:11px;font-weight:400;opacity:.7">${r.desc}</div></div>
+    </div>
+  `).join('');
+
+  // Flow
+  const sections = DATA[activeRole] || [];
+  let html = '';
+
+  sections.forEach((sec, si) => {
+    const isOpen = openSections.has(si);
+    html += `
+      <div class="section-card ${sec.section.includes('Pubblico') ? 'public-section' : ''}">
+        <div class="section-header" onclick="toggleSection(${si})">
+          <h3>${sec.section} <span class="badge-count">${sec.actions.length} azioni</span></h3>
+          <span class="arrow ${isOpen ? 'open' : ''}">▼</span>
+        </div>
+        <div class="section-body ${isOpen ? 'open' : ''}">
+          <div class="action-flow">
+            ${sec.actions.map((a, ai) => {
+              const key = `${si}-${ai}`;
+              return `<div class="action-node ${a.type} ${activeAction === key ? 'active' : ''}" onclick="event.stopPropagation(); selectAction(${si}, ${ai})">${a.name}</div>`;
+            }).join('')}
+          </div>
+          ${sec.actions.map((a, ai) => {
+            const key = `${si}-${ai}`;
+            return `<div class="detail-panel ${activeAction === key ? 'open' : ''}" id="detail-${key}">
+              <h4>${a.name}</h4>
+              <p>${a.detail}</p>
+              ${a.steps ? `<ul class="step-list">${a.steps.map(s => `<li>${s}</li>`).join('')}</ul>` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  });
+
+  // Add certification flow for admin and org_admin
+  if (['admin', 'org_admin'].includes(activeRole)) {
+    html += `
+      <div class="section-card">
+        <div class="section-header" onclick="toggleSection(999)">
+          <h3>🔄 Flusso Certificazione Completo <span class="badge-count">8 step</span></h3>
+          <span class="arrow ${openSections.has(999) ? 'open' : ''}">▼</span>
+        </div>
+        <div class="section-body ${openSections.has(999) ? 'open' : ''}">
+          <div class="cert-flow">
+            <div class="cert-flow-steps">
+              ${CERT_FLOW.map((s, i) => `
+                <div>
+                  <div class="cert-step" onclick="selectCertStep(${i})" id="cert-${i}">${s.label}</div>
+                  <span class="cert-actor">${s.actor}</span>
+                </div>
+                ${i < CERT_FLOW.length - 1 ? '<span class="cert-arrow">→</span>' : ''}
+              `).join('')}
+            </div>
+            <div class="detail-panel" id="cert-detail" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  document.getElementById('flow-area').innerHTML = html;
+}
+
+function selectRole(role) {
+  activeRole = role;
+  openSections = new Set([0]); // open first section
+  activeAction = null;
+  render();
+}
+
+function toggleSection(index) {
+  if (openSections.has(index)) openSections.delete(index);
+  else openSections.add(index);
+  render();
+}
+
+function selectAction(si, ai) {
+  const key = `${si}-${ai}`;
+  activeAction = activeAction === key ? null : key;
+  render();
+}
+
+function selectCertStep(i) {
+  const step = CERT_FLOW[i];
+  document.querySelectorAll('.cert-step').forEach((el, idx) => {
+    el.classList.toggle('active', idx === i);
+  });
+  const detail = document.getElementById('cert-detail');
+  detail.style.display = 'block';
+  detail.innerHTML = `<h4>Step ${i + 1}: ${step.label}</h4><p><strong>Attore:</strong> ${step.actor}</p><p>${step.detail}</p>`;
+}
+
+// Init
+openSections.add(0);
+render();
+</script>
+</body>
+</html>

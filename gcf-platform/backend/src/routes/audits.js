@@ -24,7 +24,7 @@ router.get('/', authenticate, authorize('admin', 'auditor'), (req, res) => {
     if (certification_id) { where += ' AND a.certification_id = ?'; params.push(certification_id); }
 
     const audits = db.prepare(`
-      SELECT a.*, o.name as org_name, o.city as org_city, c.cert_number
+      SELECT a.*, o.name as org_name, o.city as org_city, c.cert_number, c.organization_id
       FROM audits a
       JOIN certifications c ON a.certification_id = c.id
       JOIN organizations o ON c.organization_id = o.id
