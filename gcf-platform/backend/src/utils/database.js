@@ -48,22 +48,25 @@ function getDb() {
     prepare(sql) {
       return {
         run(...params) {
-          db.run(sql, params);
+          const safeParams = params.map(p => p === undefined ? null : p);
+          db.run(sql, safeParams);
           scheduleSave();
           return { changes: db.getRowsModified() };
         },
         get(...params) {
+          const safeParams = params.map(p => p === undefined ? null : p);
           const stmt = db.prepare(sql);
-          if (params.length) stmt.bind(params);
+          if (safeParams.length) stmt.bind(safeParams);
           let row;
           if (stmt.step()) row = stmt.getAsObject();
           stmt.free();
           return row;
         },
         all(...params) {
+          const safeParams = params.map(p => p === undefined ? null : p);
           const results = [];
           const stmt = db.prepare(sql);
-          if (params.length) stmt.bind(params);
+          if (safeParams.length) stmt.bind(safeParams);
           while (stmt.step()) results.push(stmt.getAsObject());
           stmt.free();
           return results;
