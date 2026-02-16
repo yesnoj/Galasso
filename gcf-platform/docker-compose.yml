@@ -1,0 +1,43 @@
+# Docker Compose - GCF Platform per QNAP TS-253A
+# Utilizzo: docker-compose up -d
+# Accesso: http://IP-NAS:3000
+
+version: '3.8'
+
+services:
+  gcf-app:
+    build: .
+    container_name: gcf-platform
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persistenza dati - questi sopravvivono al riavvio del container
+      - gcf-data:/app/db
+      - gcf-uploads:/app/uploads
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET:-gcf-aicare-secret-cambiami-2026}
+      - DB_PATH=/app/db/gcf.sqlite
+      - UPLOAD_DIR=/app/uploads
+    # Limiti risorse per QNAP TS-253A (Celeron N3150, 4GB RAM)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '2.0'
+        reservations:
+          memory: 128M
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  gcf-data:
+    driver: local
+  gcf-uploads:
+    driver: local
