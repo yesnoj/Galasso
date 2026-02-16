@@ -148,4 +148,142 @@ router.put('/:id/status', authenticate, authorize('admin', 'auditor'), (req, res
   }
 });
 
+// GET /api/certifications/:id/certificate-pdf
+router.get('/:id/certificate-pdf', authenticate, (req, res) => {
+  try {
+    const db = getDb();
+    const cert = db.prepare(`
+      SELECT c.*, o.name as org_name, o.city as org_city, o.address as org_address,
+      o.province as org_province, o.region as org_region, o.postal_code as org_postal_code,
+      o.legal_form, o.tax_code, o.vat_number, o.social_manager_name, o.social_manager_role,
+      o.phone as org_phone, o.email as org_email
+      FROM certifications c
+      JOIN organizations o ON c.organization_id = o.id
+      WHERE c.id = ? AND c.status = 'issued'
+    `).get(req.params.id);
+
+    if (!cert) return res.status(404).json({ error: 'Certificato non trovato o non ancora rilasciato' });
+
+    const PDFDocument = require('pdfkit');
+    const doc = new PDFDocument({ margin: 60, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=certificato_${cert.cert_number || 'GCF'}.pdf`);
+    doc.pipe(res);
+
+    const pageW = 595.28;
+    const contentW = pageW - 120;
+    const GREEN = '#2E7D32';
+    const GREEN_LIGHT = '#4CAF50';
+    const GRAY = '#666666';
+
+    // === BORDO DECORATIVO ===
+    doc.rect(20, 20, pageW - 40, 801.89).lineWidth(2).stroke(GREEN);
+    doc.rect(25, 25, pageW - 50, 791.89).lineWidth(0.5).stroke(GREEN_LIGHT);
+
+    // === HEADER ===
+    doc.moveDown(2);
+    doc.fontSize(13).fillColor(GREEN).text('AICARE', { align: 'center' });
+    doc.fontSize(9).fillColor(GRAY).text('Agenzia Italiana per la Campagna e l\'Agricoltura Responsabile e Etica', { align: 'center' });
+    doc.moveDown(1.5);
+
+    // Linea separatrice
+    const lineY = doc.y;
+    doc.moveTo(80, lineY).lineTo(pageW - 80, lineY).lineWidth(1).stroke(GREEN);
+    doc.moveDown(1.5);
+
+    // === TITOLO ===
+    doc.fontSize(24).fillColor(GREEN).text('CERTIFICATO DI CONFORMITÀ', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(14).fillColor('#333333').text('Green Care Farm Certificata — AICARE', { align: 'center' });
+    doc.moveDown(0.3);
+    doc.fontSize(10).fillColor(GRAY).text(`Codice certificato: AICARE-GCF-CERT-01`, { align: 'center' });
+    doc.moveDown(2);
+
+    // === NUMERO CERTIFICATO ===
+    const certNumY = doc.y;
+    doc.roundedRect(pageW / 2 - 100, certNumY, 200, 36, 8).lineWidth(1.5).stroke(GREEN);
+    doc.fontSize(16).fillColor(GREEN).text(cert.cert_number || '—', pageW / 2 - 100, certNumY + 10, { width: 200, align: 'center' });
+    doc.moveDown(3);
+
+    // === DATI ORGANIZZAZIONE ===
+    const legalForms = { farm: 'Azienda agricola', coop: 'Cooperativa sociale', social_enterprise: 'Impresa sociale', association: 'Associazione', foundation: 'Fondazione', other: 'Altro' };
+    const legalLabel = legalForms[cert.legal_form] || cert.legal_form || '—';
+
+    const orgStartY = doc.y;
+    doc.fontSize(10).fillColor(GRAY).text('Organizzazione certificata:', 80);
+    doc.fontSize(14).fillColor('#1a1a1a').text(cert.org_name, 80);
+    doc.moveDown(0.3);
+    doc.fontSize(10).fillColor('#333333');
+    doc.text(`Forma giuridica: ${legalLabel}`, 80);
+    if (cert.tax_code) doc.text(`Codice fiscale: ${cert.tax_code}`, 80);
+    if (cert.vat_number) doc.text(`Partita IVA: ${cert.vat_number}`, 80);
+    const addressParts = [cert.org_address, cert.org_postal_code, cert.org_city, cert.org_province ? `(${cert.org_province})` : '', cert.org_region].filter(Boolean);
+    doc.text(`Sede: ${addressParts.join(', ')}`, 80);
+    doc.moveDown(1.5);
+
+    // Linea
+    const line2Y = doc.y;
+    doc.moveTo(80, line2Y).lineTo(pageW - 80, line2Y).lineWidth(0.5).stroke('#CCCCCC');
+    doc.moveDown(1);
+
+    // === DICHIARAZIONE ===
+    doc.fontSize(10).fillColor('#333333').text(
+      'AICARE certifica che l\'organizzazione sopra indicata è conforme allo standard AICARE-GCF-STD-01 v1.0 "Green Care Farm Certificata — AICARE" per la qualità dei servizi di agricoltura sociale.',
+      80, doc.y, { width: contentW, align: 'justify', lineGap: 4 }
+    );
+    doc.moveDown(1);
+    doc.text(
+      'La certificazione è stata rilasciata a seguito di verifica di conformità condotta secondo le procedure previste dallo schema di certificazione AICARE.',
+      80, doc.y, { width: contentW, align: 'justify', lineGap: 4 }
+    );
+    doc.moveDown(2);
+
+    // === DATE ===
+    const dateBoxY = doc.y;
+    // Box rilascio
+    doc.roundedRect(80, dateBoxY, contentW / 2 - 10, 50, 6).fillAndStroke('#F1F8E9', GREEN_LIGHT);
+    doc.fontSize(8).fillColor(GRAY).text('Data di rilascio', 90, dateBoxY + 8, { width: contentW / 2 - 30 });
+    doc.fontSize(12).fillColor('#1a1a1a').text(formatDatePdf(cert.issue_date), 90, dateBoxY + 24, { width: contentW / 2 - 30 });
+
+    // Box scadenza
+    const box2X = 80 + contentW / 2 + 10;
+    doc.roundedRect(box2X, dateBoxY, contentW / 2 - 10, 50, 6).fillAndStroke('#F1F8E9', GREEN_LIGHT);
+    doc.fontSize(8).fillColor(GRAY).text('Data di scadenza', box2X + 10, dateBoxY + 8, { width: contentW / 2 - 30 });
+    doc.fontSize(12).fillColor('#1a1a1a').text(formatDatePdf(cert.expiry_date), box2X + 10, dateBoxY + 24, { width: contentW / 2 - 30 });
+    doc.y = dateBoxY + 70;
+
+    doc.moveDown(2);
+
+    // === FIRMA ===
+    doc.fontSize(10).fillColor(GRAY).text('Firma autorizzata AICARE:', 80);
+    doc.moveDown(2);
+    const signLineY = doc.y;
+    doc.moveTo(80, signLineY).lineTo(280, signLineY).lineWidth(0.5).stroke('#999999');
+    doc.moveDown(0.3);
+    doc.fontSize(9).fillColor('#333333').text('Nome e ruolo: ________________________________', 80);
+    doc.moveDown(1);
+    doc.fontSize(9).fillColor(GRAY).text('Luogo e data: ________________________________', 80);
+
+    // === FOOTER ===
+    doc.moveDown(3);
+    const footerY = Math.max(doc.y, 740);
+    const footLine = footerY;
+    doc.moveTo(80, footLine).lineTo(pageW - 80, footLine).lineWidth(0.5).stroke('#CCCCCC');
+    doc.fontSize(7).fillColor(GRAY);
+    doc.text('Questo certificato autorizza l\'organizzazione a utilizzare il marchio Green Care Farm Certificata — AICARE secondo il regolamento vigente.', 80, footLine + 8, { width: contentW, align: 'center' });
+    doc.text('La validità del certificato può essere verificata nel Registro Pubblico delle Organizzazioni Certificate.', 80, footLine + 20, { width: contentW, align: 'center' });
+
+    doc.end();
+  } catch (err) {
+    console.error('Generate certificate PDF error:', err);
+    res.status(500).json({ error: 'Errore generazione certificato PDF' });
+  }
+});
+
+function formatDatePdf(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 module.exports = router;

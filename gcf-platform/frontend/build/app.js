@@ -176,9 +176,9 @@ function showConfirmModal(title, message, onConfirm) {
     overlay.classList.remove('visible');
     setTimeout(() => overlay.remove(), 200);
   };
-  overlay.querySelector('#modal-confirm').onclick = () => {
+  overlay.querySelector('#modal-confirm').onclick = async () => {
     overlay.remove();
-    onConfirm();
+    await onConfirm();
   };
   overlay.onclick = (e) => {
     if (e.target === overlay) {
@@ -478,14 +478,14 @@ async function renderDashboard() {
     if (!stats) return;
     html = `
       <div class="stats-grid">
-        <div class="stat-card"><div class="stat-icon">🏠</div><div class="stat-value">${stats.organizations.total}</div><div class="stat-label">Organizzazioni</div></div>
-        <div class="stat-card"><div class="stat-icon">📜</div><div class="stat-value">${stats.certifications.total}</div><div class="stat-label">Certificazioni</div></div>
-        <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value">${stats.audits.completed}</div><div class="stat-label">Audit completati</div></div>
-        <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-value">${stats.beneficiaries.active}</div><div class="stat-label">Beneficiari attivi</div></div>
-        <div class="stat-card"><div class="stat-icon">📋</div><div class="stat-value">${stats.activities.total}</div><div class="stat-label">Attività registrate</div></div>
+        <div class="stat-card clickable" onclick="navigate('organizations')"><div class="stat-icon">🏠</div><div class="stat-value">${stats.organizations.total}</div><div class="stat-label">Organizzazioni</div></div>
+        <div class="stat-card clickable" onclick="navigate('certifications')"><div class="stat-icon">📜</div><div class="stat-value">${stats.certifications.total}</div><div class="stat-label">Certificazioni</div></div>
+        <div class="stat-card clickable" onclick="navigate('audits')"><div class="stat-icon">✅</div><div class="stat-value">${stats.audits.completed}</div><div class="stat-label">Audit completati</div></div>
+        <div class="stat-card clickable" onclick="navigate('beneficiaries')"><div class="stat-icon">👥</div><div class="stat-value">${stats.beneficiaries.active}</div><div class="stat-label">Beneficiari attivi</div></div>
+        <div class="stat-card clickable" onclick="navigate('activities')"><div class="stat-icon">📋</div><div class="stat-value">${stats.activities.total}</div><div class="stat-label">Attività registrate</div></div>
         <div class="stat-card"><div class="stat-icon">⏱️</div><div class="stat-value">${Math.round(stats.activities.totalHours)}</div><div class="stat-label">Ore totali</div></div>
         <div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value">${stats.correctiveActions.open}</div><div class="stat-label">Azioni correttive aperte</div></div>
-        <div class="stat-card"><div class="stat-icon">👤</div><div class="stat-value">${stats.users.total}</div><div class="stat-label">Utenti registrati</div></div>
+        <div class="stat-card clickable" onclick="navigate('admin-users')"><div class="stat-icon">👤</div><div class="stat-value">${stats.users.total}</div><div class="stat-label">Utenti registrati</div></div>
       </div>
       ${stats.certifications.expiringSoon.length > 0 ? `
         <div class="card mb-2">
@@ -672,11 +672,20 @@ async function renderCertifications() {
   if (!certs) return;
 
   const isAdmin = state.user.role === 'admin';
+  const isOrg = state.user.role === 'org_admin' || state.user.role === 'org_operator';
+  const orgId = state.user.organization?.id;
+
+  // Verifica se l'org può fare domanda (nessuna cert attiva/in corso)
+  const canRequest = isOrg && orgId && !certs.some(c => ['draft','submitted','doc_review','doc_approved','audit_scheduled','audit_completed','approved','issued'].includes(c.status));
+
+  const actions = canRequest ? `<button class="btn btn-primary" onclick="requestCertification()">📜 Richiedi certificazione</button>` : '';
 
   $('#page-content').innerHTML = certs.length === 0 ? `
     <div class="empty-state"><div class="icon">📜</div><h3>Nessuna certificazione</h3>
-    <p>Per fare domanda, prima registra la tua organizzazione.</p></div>
+    ${isOrg ? `<p>Non hai ancora una certificazione.</p><button class="btn btn-primary mt-2" onclick="requestCertification()">📜 Richiedi certificazione</button>` : '<p>Nessuna certificazione presente.</p>'}
+    </div>
   ` : `
+    ${actions ? `<div class="mb-2">${actions}</div>` : ''}
     <div class="table-container"><table>
       <tr><th>Organizzazione</th><th>N. Certificato</th><th>Stato</th><th>Data domanda</th><th>Scadenza</th><th></th></tr>
       ${certs.map(c => `<tr>
@@ -726,6 +735,12 @@ async function renderCertificationDetail(id) {
     auditBtn = `<button class="btn btn-primary mt-2" onclick="createAudit('${id}')">✅ Crea audit</button>`;
   }
 
+  // Pulsante scarica certificato
+  let certPdfBtn = '';
+  if (cert.status === 'issued') {
+    certPdfBtn = `<button class="btn btn-primary mt-2" onclick="downloadCertificatePdf('${id}', '${cert.cert_number || 'GCF'}')">📄 Scarica Certificato PDF</button>`;
+  }
+
   $('#page-content').innerHTML = `
     <div class="card mb-2">
       <div class="card-header"><h3>Certificazione ${cert.cert_number || ''}</h3></div>
@@ -744,6 +759,7 @@ async function renderCertificationDetail(id) {
         </div>
         ${actionsHtml}
         ${auditBtn}
+        ${certPdfBtn}
       </div>
     </div>
     ${cert.audits && cert.audits.length > 0 ? `
@@ -822,6 +838,19 @@ async function createAudit(certId) {
     body: JSON.stringify({ certificationId: certId, auditType: 'initial', auditMode: 'on_site' })
   });
   if (result) { toast('Audit creato!', 'success'); navigate('audit-checklist', result.id); }
+}
+
+async function requestCertification() {
+  const orgId = state.user.organization?.id;
+  if (!orgId) { toast('Nessuna organizzazione associata al tuo account', 'error'); return; }
+  
+  showConfirmModal('Richiedi certificazione', 'Vuoi inviare la domanda di certificazione Green Care Farm per la tua organizzazione?', async () => {
+    const result = await api('/certifications', {
+      method: 'POST',
+      body: JSON.stringify({ organizationId: orgId })
+    });
+    if (result) { toast('Domanda di certificazione inviata!', 'success'); renderCertifications(); }
+  });
 }
 
 // ============================================================
@@ -1073,6 +1102,23 @@ async function downloadAuditPdf(auditId) {
   } catch { toast('Errore download', 'error'); }
 }
 
+async function downloadCertificatePdf(certId, certNumber) {
+  try {
+    const res = await fetch(`${API}/certifications/${certId}/certificate-pdf`, {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    if (!res.ok) { toast('Errore download certificato', 'error'); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `certificato_${certNumber}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Certificato scaricato', 'success');
+  } catch { toast('Errore download', 'error'); }
+}
+
 // ============================================================
 // PAGE: BENEFICIARIES
 // ============================================================
@@ -1087,7 +1133,7 @@ async function renderBeneficiaries() {
     ${canAdd ? '<button class="btn btn-primary mb-2" onclick="showAddBeneficiaryModal()">+ Nuovo beneficiario</button>' : ''}
     ${bens.length === 0 ? '<div class="empty-state"><div class="icon">👥</div><h3>Nessun beneficiario registrato</h3></div>' : `
       <div class="table-container"><table>
-        <tr><th>Codice</th><th>Organizzazione</th><th>Tipologia</th><th>Stato</th><th>Ente inviante</th><th>Attività</th><th>Ultima attività</th></tr>
+        <tr><th>Codice</th><th>Organizzazione</th><th>Tipologia</th><th>Stato</th><th>Ente inviante</th><th>Attività</th>${canAdd ? '<th>Azioni</th>' : ''}</tr>
         ${bens.map(b => `<tr>
           <td><strong>${sanitize(b.code)}</strong></td>
           <td>${sanitize(b.org_name)}</td>
@@ -1095,7 +1141,10 @@ async function renderBeneficiaries() {
           <td>${badge(b.status)}</td>
           <td>${sanitize(b.referring_entity) || '—'}</td>
           <td>${b.activity_count || 0}</td>
-          <td>${formatDate(b.last_activity)}</td>
+          ${canAdd ? `<td><div style="display:flex;gap:4px;flex-wrap:nowrap">
+            <button class="btn btn-secondary btn-sm" onclick="showEditBeneficiaryModal('${b.id}')">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteBeneficiary('${b.id}','${sanitize(b.code)}')">🗑️</button>
+          </div></td>` : ''}
         </tr>`).join('')}
       </table></div>
     `}
@@ -1157,7 +1206,7 @@ async function renderActivities() {
     ${canAdd ? '<button class="btn btn-primary mb-2" onclick="showAddActivityModal()">+ Registra attività</button>' : ''}
     ${activities.length === 0 ? '<div class="empty-state"><div class="icon">📋</div><h3>Nessuna attività registrata</h3></div>' : `
       <div class="table-container"><table>
-        <tr><th>Data</th><th>Organizzazione</th><th>Beneficiario</th><th>Servizio</th><th>Durata</th><th>Descrizione</th></tr>
+        <tr><th>Data</th><th>Organizzazione</th><th>Beneficiario</th><th>Servizio</th><th>Durata</th><th>Descrizione</th>${canAdd ? '<th>Azioni</th>' : ''}</tr>
         ${activities.map(a => `<tr>
           <td>${formatDate(a.activity_date)}</td>
           <td>${sanitize(a.org_name)}</td>
@@ -1165,6 +1214,10 @@ async function renderActivities() {
           <td>${SERVICE_LABELS[a.service_type] || a.service_type || '—'}</td>
           <td>${a.duration_minutes ? a.duration_minutes + ' min' : '—'}</td>
           <td>${sanitize(a.description)}</td>
+          ${canAdd ? `<td><div style="display:flex;gap:4px;flex-wrap:nowrap">
+            <button class="btn btn-secondary btn-sm" onclick="showEditActivityModal('${a.id}','${a.activity_date||''}','${a.service_type||''}',${a.duration_minutes||'null'},'${sanitize(a.description).replace(/'/g,"\\'")}','${sanitize(a.notes||'').replace(/'/g,"\\'")}','${a.organization_id||''}')">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteActivity('${a.id}')">🗑️</button>
+          </div></td>` : ''}
         </tr>`).join('')}
       </table></div>
     `}
@@ -1208,6 +1261,130 @@ function showAddActivityModal() {
     });
     if (result) { toast('Attività registrata!', 'success'); renderActivities(); }
   };
+}
+
+async function showEditBeneficiaryModal(benId) {
+  const bens = await api('/beneficiaries');
+  const b = bens?.find(x => x.id === benId);
+  if (!b) { toast('Beneficiario non trovato', 'error'); return; }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-modal" style="max-width:480px;text-align:left">
+      <div style="text-align:center"><div class="confirm-modal-icon">✏️</div>
+      <h3 class="confirm-modal-title">Modifica Beneficiario</h3>
+      <p class="confirm-modal-text">${sanitize(b.code)}</p></div>
+      <div class="form-group" style="margin-bottom:12px"><label>Tipologia utenza</label>
+        <select id="eb-target" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px">
+          <option value="">Seleziona...</option>
+          ${Object.entries(TARGET_LABELS).map(([v,l]) => `<option value="${v}" ${v===b.target_type?'selected':''}>${l}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:12px"><label>Stato</label>
+        <select id="eb-status" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px">
+          <option value="active" ${b.status==='active'?'selected':''}>Attivo</option>
+          <option value="completed" ${b.status==='completed'?'selected':''}>Completato</option>
+          <option value="suspended" ${b.status==='suspended'?'selected':''}>Sospeso</option>
+          <option value="dropped" ${b.status==='dropped'?'selected':''}>Abbandonato</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:12px"><label>Ente inviante</label>
+        <input id="eb-entity" value="${sanitize(b.referring_entity||'')}" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px">
+      </div>
+      <div class="form-group" style="margin-bottom:12px"><label>Data fine</label>
+        <input type="date" id="eb-end" value="${b.end_date||''}" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px">
+      </div>
+      <div class="form-group" style="margin-bottom:20px"><label>Note</label>
+        <textarea id="eb-notes" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;min-height:60px">${sanitize(b.notes||'')}</textarea>
+      </div>
+      <div class="confirm-modal-actions" style="justify-content:flex-end">
+        <button class="btn btn-secondary" id="modal-cancel">Annulla</button>
+        <button class="btn btn-primary" id="modal-confirm">Salva</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+
+  overlay.querySelector('#modal-cancel').onclick = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
+  overlay.onclick = (e) => { if (e.target === overlay) { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); } };
+  overlay.querySelector('#modal-confirm').onclick = async () => {
+    const body = {
+      targetType: overlay.querySelector('#eb-target').value || null,
+      status: overlay.querySelector('#eb-status').value,
+      referringEntity: overlay.querySelector('#eb-entity').value.trim() || null,
+      endDate: overlay.querySelector('#eb-end').value || null,
+      notes: overlay.querySelector('#eb-notes').value.trim() || null,
+    };
+    overlay.remove();
+    const result = await api(`/beneficiaries/${benId}`, { method: 'PUT', body: JSON.stringify(body) });
+    if (result) { toast('Beneficiario aggiornato!', 'success'); renderBeneficiaries(); }
+  };
+}
+
+function deleteBeneficiary(benId, code) {
+  showConfirmModal('Eliminare beneficiario?', `Sei sicuro di voler eliminare il beneficiario ${code}? L'operazione è irreversibile.`, async () => {
+    const result = await api(`/beneficiaries/${benId}`, { method: 'DELETE' });
+    if (result) { toast('Beneficiario eliminato!', 'success'); renderBeneficiaries(); }
+  });
+}
+
+function showEditActivityModal(actId, date, serviceType, duration, description, notes, orgId) {
+  const inputStyle = 'width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px';
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-modal" style="max-width:480px;text-align:left">
+      <div style="text-align:center"><div class="confirm-modal-icon">✏️</div>
+      <h3 class="confirm-modal-title">Modifica Attività</h3></div>
+      <div class="form-row" style="margin-bottom:12px">
+        <div class="form-group"><label>Data *</label><input type="date" id="ea-date" value="${date}" style="${inputStyle}"></div>
+        <div class="form-group"><label>Durata (minuti)</label><input type="number" id="ea-dur" value="${duration||''}" style="${inputStyle}"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px"><label>Tipo servizio</label>
+        <select id="ea-type" style="${inputStyle}">
+          <option value="">Seleziona...</option>
+          ${Object.entries(SERVICE_LABELS).map(([v,l]) => `<option value="${v}" ${v===serviceType?'selected':''}>${l}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:12px"><label>Descrizione *</label>
+        <textarea id="ea-desc" style="${inputStyle};min-height:80px">${description}</textarea>
+      </div>
+      <div class="form-group" style="margin-bottom:20px"><label>Note</label>
+        <textarea id="ea-notes" style="${inputStyle};min-height:60px">${notes}</textarea>
+      </div>
+      <div class="confirm-modal-actions" style="justify-content:flex-end">
+        <button class="btn btn-secondary" id="modal-cancel">Annulla</button>
+        <button class="btn btn-primary" id="modal-confirm">Salva</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+
+  overlay.querySelector('#modal-cancel').onclick = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
+  overlay.onclick = (e) => { if (e.target === overlay) { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); } };
+  overlay.querySelector('#modal-confirm').onclick = async () => {
+    const body = {
+      activityDate: overlay.querySelector('#ea-date').value,
+      serviceType: overlay.querySelector('#ea-type').value || null,
+      durationMinutes: parseInt(overlay.querySelector('#ea-dur').value) || null,
+      description: overlay.querySelector('#ea-desc').value.trim(),
+      notes: overlay.querySelector('#ea-notes').value.trim() || null,
+    };
+    if (!body.activityDate || !body.description) { toast('Data e descrizione obbligatorie', 'error'); return; }
+    overlay.remove();
+    const result = await api(`/beneficiaries/activities/${actId}`, { method: 'PUT', body: JSON.stringify(body) });
+    if (result) { toast('Attività aggiornata!', 'success'); renderActivities(); }
+  };
+}
+
+function deleteActivity(actId) {
+  showConfirmModal('Eliminare attività?', 'Sei sicuro di voler eliminare questa attività? L\'operazione è irreversibile.', async () => {
+    const result = await api(`/beneficiaries/activities/${actId}`, { method: 'DELETE' });
+    if (result) { toast('Attività eliminata!', 'success'); renderActivities(); }
+  });
 }
 
 // ============================================================
@@ -1429,10 +1606,10 @@ async function renderAdmin() {
 
   $('#page-content').innerHTML = `
     <div class="stats-grid">
-      <div class="stat-card"><div class="stat-value">${stats.organizations.total}</div><div class="stat-label">Organizzazioni totali</div></div>
-      <div class="stat-card"><div class="stat-value">${stats.certifications.total}</div><div class="stat-label">Certificazioni</div></div>
-      <div class="stat-card"><div class="stat-value">${stats.audits.total}</div><div class="stat-label">Audit</div></div>
-      <div class="stat-card"><div class="stat-value">${stats.users.total}</div><div class="stat-label">Utenti</div></div>
+      <div class="stat-card clickable" onclick="navigate('organizations')"><div class="stat-value">${stats.organizations.total}</div><div class="stat-label">Organizzazioni totali</div></div>
+      <div class="stat-card clickable" onclick="navigate('certifications')"><div class="stat-value">${stats.certifications.total}</div><div class="stat-label">Certificazioni</div></div>
+      <div class="stat-card clickable" onclick="navigate('audits')"><div class="stat-value">${stats.audits.total}</div><div class="stat-label">Audit</div></div>
+      <div class="stat-card clickable" onclick="navigate('admin-users')"><div class="stat-value">${stats.users.total}</div><div class="stat-label">Utenti</div></div>
     </div>
     <div class="form-row">
       <div class="card">
@@ -1441,11 +1618,14 @@ async function renderAdmin() {
       </div>
       <div class="card">
         <div class="card-header"><h3>Utenti per ruolo</h3></div>
-        <div class="card-body">${stats.users.byRole.map(r => `<p><strong>${r.role}:</strong> ${r.count}</p>`).join('')}</div>
+        <div class="card-body">${stats.users.byRole.map(r => `<p><strong>${ROLE_LABELS[r.role] || r.role}:</strong> ${r.count}</p>`).join('')}</div>
       </div>
     </div>
   `;
 }
+
+const ROLE_LABELS = { admin:'Amministratore', auditor:'Auditor', org_admin:'Admin Organizzazione', org_operator:'Operatore', ente_referente:'Ente Referente' };
+const ROLE_OPTIONS = ['admin','auditor','org_admin','org_operator','ente_referente'];
 
 // ============================================================
 // PAGE: ADMIN USERS
@@ -1456,18 +1636,276 @@ async function renderAdminUsers() {
   if (!users) return;
 
   $('#page-content').innerHTML = `
+    <div class="mb-2"><button class="btn btn-primary" onclick="showCreateUserModal()">➕ Nuovo utente</button></div>
     <div class="table-container"><table>
-      <tr><th>Nome</th><th>Email</th><th>Ruolo</th><th>Attivo</th><th>Ultimo accesso</th><th>Registrato</th></tr>
+      <tr><th>Nome</th><th>Email</th><th>Ruolo</th><th>Organizzazione</th><th>Attivo</th><th>Ultimo accesso</th><th>Azioni</th></tr>
       ${users.map(u => `<tr>
         <td>${sanitize(u.first_name)} ${sanitize(u.last_name)}</td>
         <td>${u.email}</td>
-        <td>${u.role}</td>
+        <td><span class="badge badge-info">${ROLE_LABELS[u.role] || u.role}</span></td>
+        <td>${u.organization_name ? sanitize(u.organization_name) : '<span style="color:#999">—</span>'}</td>
         <td>${u.is_active ? '✅' : '❌'}</td>
         <td>${formatDate(u.last_login)}</td>
-        <td>${formatDate(u.created_at)}</td>
+        <td><div style="display:flex;gap:4px;flex-wrap:nowrap">
+          <button class="btn btn-secondary btn-sm" onclick="showEditUserModal('${u.id}','${sanitize(u.first_name)}','${sanitize(u.last_name)}','${u.email}','${u.role}','${u.phone||''}',${u.is_active})">✏️</button>
+          <button class="btn btn-secondary btn-sm" onclick="showResetPasswordModal('${u.id}','${u.email}')">🔑</button>
+          <button class="btn btn-sm ${u.is_active ? 'btn-danger' : 'btn-primary'}" onclick="toggleUserActive('${u.id}',${u.is_active ? 0 : 1})">${u.is_active ? '🔒' : '🔓'}</button>
+        </div></td>
       </tr>`).join('')}
     </table></div>
   `;
+}
+
+const PHONE_PREFIXES = [
+  { code: '+39', country: '🇮🇹 Italia', default: true },
+  { code: '+41', country: '🇨🇭 Svizzera' },
+  { code: '+43', country: '🇦🇹 Austria' },
+  { code: '+33', country: '🇫🇷 Francia' },
+  { code: '+49', country: '🇩🇪 Germania' },
+  { code: '+34', country: '🇪🇸 Spagna' },
+  { code: '+44', country: '🇬🇧 Regno Unito' },
+  { code: '+1', country: '🇺🇸 USA/Canada' },
+  { code: '+32', country: '🇧🇪 Belgio' },
+  { code: '+31', country: '🇳🇱 Paesi Bassi' },
+  { code: '+351', country: '🇵🇹 Portogallo' },
+  { code: '+40', country: '🇷🇴 Romania' },
+  { code: '+48', country: '🇵🇱 Polonia' },
+  { code: '+30', country: '🇬🇷 Grecia' },
+  { code: '+385', country: '🇭🇷 Croazia' },
+  { code: '+386', country: '🇸🇮 Slovenia' },
+];
+
+function phoneInputHtml(id, value = '') {
+  // Separa prefisso dal numero se presente
+  let prefix = '+39', number = value;
+  if (value) {
+    const match = value.match(/^(\+\d{1,3})\s*(.*)$/);
+    if (match) { prefix = match[1]; number = match[2]; }
+  }
+  const inputStyle = 'padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px';
+  return `
+    <div style="display:flex;gap:8px">
+      <select id="${id}-prefix" style="width:130px;${inputStyle}">
+        ${PHONE_PREFIXES.map(p => `<option value="${p.code}" ${p.code===prefix?'selected':''}>${p.country} (${p.code})</option>`).join('')}
+      </select>
+      <input type="tel" id="${id}" value="${number}" placeholder="333 1234567" style="flex:1;${inputStyle}">
+    </div>`;
+}
+
+function getPhoneValue(id) {
+  const prefix = document.querySelector(`#${id}-prefix`)?.value || '+39';
+  const number = document.querySelector(`#${id}`)?.value.trim();
+  return number ? `${prefix} ${number}` : '';
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+async function showCreateUserModal() {
+  const inputStyle = 'width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px';
+  const orgs = await api('/admin/organizations-list') || [];
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-modal" style="max-width:480px;text-align:left">
+      <div style="text-align:center"><div class="confirm-modal-icon">👤</div>
+      <h3 class="confirm-modal-title">Nuovo utente</h3></div>
+      <div class="form-row" style="margin-bottom:12px">
+        <div class="form-group"><label>Nome *</label><input type="text" id="mu-fn" style="${inputStyle}"></div>
+        <div class="form-group"><label>Cognome *</label><input type="text" id="mu-ln" style="${inputStyle}"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>Email *</label>
+        <input type="email" id="mu-email" placeholder="nome@esempio.it" style="${inputStyle}">
+        <small id="mu-email-err" style="color:#d32f2f;font-size:12px;display:none">Inserisci un indirizzo email valido</small>
+      </div>
+      <div class="form-row" style="margin-bottom:12px">
+        <div class="form-group"><label>Password *</label><input type="password" id="mu-pw" placeholder="Minimo 8 caratteri" style="${inputStyle}"></div>
+        <div class="form-group"><label>Conferma password *</label><input type="password" id="mu-pw2" placeholder="Ripeti la password" style="${inputStyle}"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>Telefono</label>
+        ${phoneInputHtml('mu-phone')}
+      </div>
+      <div class="form-group" style="margin-bottom:12px"><label>Ruolo *</label>
+        <select id="mu-role" style="${inputStyle}">
+          ${ROLE_OPTIONS.map(r => `<option value="${r}">${ROLE_LABELS[r]}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" id="mu-org-group" style="margin-bottom:20px;display:none">
+        <label>Organizzazione</label>
+        <select id="mu-org" style="${inputStyle}">
+          <option value="">— Nessuna —</option>
+          ${orgs.map(o => `<option value="${o.id}">${sanitize(o.name)} ${o.admin_user_id ? '(già assegnata)' : ''}</option>`).join('')}
+        </select>
+        <small style="color:#666;font-size:12px">Associa l'utente a un'organizzazione</small>
+      </div>
+      <div class="confirm-modal-actions" style="justify-content:flex-end">
+        <button class="btn btn-secondary" id="modal-cancel">Annulla</button>
+        <button class="btn btn-primary" id="modal-confirm">Crea utente</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+
+  // Mostra/nascondi dropdown organizzazione in base al ruolo
+  const roleSelect = overlay.querySelector('#mu-role');
+  const orgGroup = overlay.querySelector('#mu-org-group');
+  roleSelect.addEventListener('change', () => {
+    orgGroup.style.display = ['org_admin','org_operator'].includes(roleSelect.value) ? 'block' : 'none';
+  });
+
+  // Validazione email in tempo reale
+  const emailInput = overlay.querySelector('#mu-email');
+  const emailErr = overlay.querySelector('#mu-email-err');
+  emailInput.addEventListener('blur', () => {
+    const v = emailInput.value.trim();
+    if (v && !isValidEmail(v)) { emailErr.style.display = 'block'; emailInput.style.borderColor = '#d32f2f'; }
+    else { emailErr.style.display = 'none'; emailInput.style.borderColor = '#ddd'; }
+  });
+  emailInput.addEventListener('input', () => { emailErr.style.display = 'none'; emailInput.style.borderColor = '#ddd'; });
+
+  overlay.querySelector('#modal-cancel').onclick = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
+  overlay.onclick = (e) => { if (e.target === overlay) { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); } };
+  overlay.querySelector('#modal-confirm').onclick = async () => {
+    const fn = overlay.querySelector('#mu-fn').value.trim();
+    const ln = overlay.querySelector('#mu-ln').value.trim();
+    const email = overlay.querySelector('#mu-email').value.trim();
+    const pw = overlay.querySelector('#mu-pw').value;
+    const pw2 = overlay.querySelector('#mu-pw2').value;
+    const phone = getPhoneValue('mu-phone');
+    const role = overlay.querySelector('#mu-role').value;
+    const organizationId = overlay.querySelector('#mu-org').value || null;
+    if (!fn || !ln || !email || !pw) { toast('Compila tutti i campi obbligatori', 'error'); return; }
+    if (!isValidEmail(email)) { toast('Inserisci un indirizzo email valido', 'error'); emailErr.style.display = 'block'; emailInput.style.borderColor = '#d32f2f'; return; }
+    if (pw.length < 8) { toast('La password deve avere almeno 8 caratteri', 'error'); return; }
+    if (pw !== pw2) { toast('Le password non coincidono', 'error'); return; }
+    overlay.remove();
+    const result = await api('/admin/users', { method: 'POST', body: JSON.stringify({ firstName: fn, lastName: ln, email, password: pw, phone, role, organizationId }) });
+    if (result) { toast('Utente creato!', 'success'); renderAdminUsers(); }
+  };
+}
+
+async function showEditUserModal(id, fn, ln, email, role, phone, isActive) {
+  const inputStyle = 'width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px';
+  const orgs = await api('/admin/organizations-list') || [];
+  const users = await api('/admin/users') || [];
+  const currentUser = users.find(u => u.id === id);
+  const currentOrgId = currentUser?.organization_id || '';
+  
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-modal" style="max-width:480px;text-align:left">
+      <div style="text-align:center"><div class="confirm-modal-icon">✏️</div>
+      <h3 class="confirm-modal-title">Modifica utente</h3>
+      <p class="confirm-modal-text">${email}</p></div>
+      <div class="form-row" style="margin-bottom:12px">
+        <div class="form-group"><label>Nome</label><input type="text" id="mu-fn" value="${fn}" style="${inputStyle}"></div>
+        <div class="form-group"><label>Cognome</label><input type="text" id="mu-ln" value="${ln}" style="${inputStyle}"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>Telefono</label>
+        ${phoneInputHtml('mu-phone', phone)}
+      </div>
+      <div class="form-group" style="margin-bottom:12px"><label>Ruolo</label>
+        <select id="mu-role" style="${inputStyle}">
+          ${ROLE_OPTIONS.map(r => `<option value="${r}" ${r===role?'selected':''}>${ROLE_LABELS[r]}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" id="mu-org-group" style="margin-bottom:20px;${['org_admin','org_operator'].includes(role) ? '' : 'display:none'}">
+        <label>Organizzazione</label>
+        <select id="mu-org" style="${inputStyle}">
+          <option value="">— Nessuna —</option>
+          ${orgs.map(o => `<option value="${o.id}" ${o.id===currentOrgId?'selected':''}>${sanitize(o.name)} ${o.admin_user_id && o.admin_user_id !== id ? '(già assegnata)' : ''}</option>`).join('')}
+        </select>
+      </div>
+      <div class="confirm-modal-actions" style="justify-content:flex-end">
+        <button class="btn btn-secondary" id="modal-cancel">Annulla</button>
+        <button class="btn btn-primary" id="modal-confirm">Salva</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+
+  const roleSelect = overlay.querySelector('#mu-role');
+  const orgGroup = overlay.querySelector('#mu-org-group');
+  roleSelect.addEventListener('change', () => {
+    orgGroup.style.display = ['org_admin','org_operator'].includes(roleSelect.value) ? 'block' : 'none';
+  });
+
+  overlay.querySelector('#modal-cancel').onclick = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
+  overlay.onclick = (e) => { if (e.target === overlay) { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); } };
+  overlay.querySelector('#modal-confirm').onclick = async () => {
+    const newRole = overlay.querySelector('#mu-role').value;
+    const body = {
+      firstName: overlay.querySelector('#mu-fn').value.trim(),
+      lastName: overlay.querySelector('#mu-ln').value.trim(),
+      phone: getPhoneValue('mu-phone'),
+      role: newRole,
+      organizationId: ['org_admin','org_operator'].includes(newRole) ? (overlay.querySelector('#mu-org').value || null) : null
+    };
+    overlay.remove();
+    const result = await api(`/admin/users/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+    if (result) { toast('Utente aggiornato!', 'success'); renderAdminUsers(); }
+  };
+}
+
+async function toggleUserActive(id, newState) {
+  const action = newState ? 'attivare' : 'disattivare';
+  showConfirmModal(`${newState ? 'Attivare' : 'Disattivare'} utente?`, `Sei sicuro di voler ${action} questo utente?`, async () => {
+    const result = await api(`/admin/users/${id}`, { method: 'PUT', body: JSON.stringify({ isActive: newState }) });
+    if (result) { toast(`Utente ${newState ? 'attivato' : 'disattivato'}!`, 'success'); renderAdminUsers(); }
+  });
+}
+
+function showResetPasswordModal(id, email) {
+  const inputStyle = 'width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px';
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-modal" style="max-width:400px;text-align:left">
+      <div style="text-align:center"><div class="confirm-modal-icon">🔑</div>
+      <h3 class="confirm-modal-title">Reset password</h3>
+      <p class="confirm-modal-text">${email}</p></div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>Nuova password *</label>
+        <div style="position:relative">
+          <input type="password" id="rp-pw" placeholder="Minimo 8 caratteri" style="${inputStyle}">
+          <button type="button" class="btn-eye" onclick="togglePw('rp-pw',this)">👁</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:20px">
+        <label>Conferma password *</label>
+        <div style="position:relative">
+          <input type="password" id="rp-pw2" placeholder="Ripeti la password" style="${inputStyle}">
+          <button type="button" class="btn-eye" onclick="togglePw('rp-pw2',this)">👁</button>
+        </div>
+      </div>
+      <div class="confirm-modal-actions" style="justify-content:flex-end">
+        <button class="btn btn-secondary" id="modal-cancel">Annulla</button>
+        <button class="btn btn-primary" id="modal-confirm">Reimposta</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+
+  overlay.querySelector('#modal-cancel').onclick = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
+  overlay.onclick = (e) => { if (e.target === overlay) { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); } };
+  overlay.querySelector('#modal-confirm').onclick = async () => {
+    const pw = overlay.querySelector('#rp-pw').value;
+    const pw2 = overlay.querySelector('#rp-pw2').value;
+    if (!pw) { toast('Inserisci la nuova password', 'error'); return; }
+    if (pw.length < 8) { toast('La password deve avere almeno 8 caratteri', 'error'); return; }
+    if (pw !== pw2) { toast('Le password non coincidono', 'error'); return; }
+    overlay.remove();
+    const result = await api(`/admin/users/${id}/reset-password`, { method: 'PUT', body: JSON.stringify({ password: pw }) });
+    if (result) { toast('Password reimpostata!', 'success'); }
+  };
 }
 
 // ============================================================

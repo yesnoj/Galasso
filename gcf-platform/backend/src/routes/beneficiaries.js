@@ -197,4 +197,59 @@ router.post('/:id/reports', authenticate, authorize('admin', 'org_admin', 'org_o
   }
 });
 
+// DELETE /api/beneficiaries/:id
+router.delete('/:id', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
+  try {
+    const db = getDb();
+    const ben = db.prepare('SELECT id FROM beneficiaries WHERE id = ?').get(req.params.id);
+    if (!ben) return res.status(404).json({ error: 'Beneficiario non trovato' });
+
+    const actCount = db.prepare('SELECT COUNT(*) as c FROM activity_logs WHERE beneficiary_id = ?').get(req.params.id);
+    if (actCount.c > 0) {
+      return res.status(400).json({ error: `Impossibile eliminare: ci sono ${actCount.c} attività collegate. Elimina prima le attività.` });
+    }
+
+    db.prepare('DELETE FROM individual_projects WHERE beneficiary_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM monitoring_reports WHERE beneficiary_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM beneficiaries WHERE id = ?').run(req.params.id);
+    res.json({ message: 'Beneficiario eliminato' });
+  } catch (err) {
+    res.status(500).json({ error: 'Errore eliminazione beneficiario' });
+  }
+});
+
+// PUT /api/activities/:id
+router.put('/activities/:id', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
+  try {
+    const { activityDate, serviceType, durationMinutes, description, notes, beneficiaryId } = req.body;
+    const db = getDb();
+
+    db.prepare(`
+      UPDATE activity_logs SET 
+        activity_date = COALESCE(?, activity_date), service_type = COALESCE(?, service_type),
+        duration_minutes = COALESCE(?, duration_minutes), description = COALESCE(?, description),
+        notes = COALESCE(?, notes), beneficiary_id = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `).run(activityDate, serviceType, durationMinutes, description, notes, beneficiaryId || null, req.params.id);
+
+    res.json({ message: 'Attività aggiornata' });
+  } catch (err) {
+    res.status(500).json({ error: 'Errore aggiornamento attività' });
+  }
+});
+
+// DELETE /api/activities/:id
+router.delete('/activities/:id', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
+  try {
+    const db = getDb();
+    const act = db.prepare('SELECT id FROM activity_logs WHERE id = ?').get(req.params.id);
+    if (!act) return res.status(404).json({ error: 'Attività non trovata' });
+
+    db.prepare('DELETE FROM activity_logs WHERE id = ?').run(req.params.id);
+    res.json({ message: 'Attività eliminata' });
+  } catch (err) {
+    res.status(500).json({ error: 'Errore eliminazione attività' });
+  }
+});
+
 module.exports = router;

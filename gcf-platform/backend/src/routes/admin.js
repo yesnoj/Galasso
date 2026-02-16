@@ -67,8 +67,10 @@ router.get('/users', authenticate, authorize('admin'), (req, res) => {
   try {
     const db = getDb();
     const users = db.prepare(`
-      SELECT id, email, role, first_name, last_name, phone, is_active, email_verified, last_login, created_at
-      FROM users ORDER BY created_at DESC
+      SELECT u.id, u.email, u.role, u.first_name, u.last_name, u.phone, u.is_active, u.email_verified, u.last_login, u.created_at,
+        o.id as organization_id, o.name as organization_name
+      FROM users u LEFT JOIN organizations o ON o.admin_user_id = u.id
+      ORDER BY u.created_at DESC
     `).all();
     res.json(users);
   } catch (err) {
@@ -76,10 +78,21 @@ router.get('/users', authenticate, authorize('admin'), (req, res) => {
   }
 });
 
+// GET /api/admin/organizations-list (per dropdown associazione)
+router.get('/organizations-list', authenticate, authorize('admin'), (req, res) => {
+  try {
+    const db = getDb();
+    const orgs = db.prepare('SELECT id, name, admin_user_id FROM organizations ORDER BY name').all();
+    res.json(orgs);
+  } catch (err) {
+    res.status(500).json({ error: 'Errore nel recupero organizzazioni' });
+  }
+});
+
 // POST /api/admin/users - Crea utente (admin)
 router.post('/users', authenticate, authorize('admin'), (req, res) => {
   try {
-    const { email, password, role, firstName, lastName, phone } = req.body;
+    const { email, password, role, firstName, lastName, phone, organizationId } = req.body;
     if (!email || !password || !role || !firstName || !lastName) {
       return res.status(400).json({ error: 'Tutti i campi obbligatori' });
     }
@@ -95,6 +108,11 @@ router.post('/users', authenticate, authorize('admin'), (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1)
     `).run(id, email.toLowerCase(), hash, role, firstName, lastName, phone || null);
 
+    // Associa organizzazione se specificata
+    if (organizationId && (role === 'org_admin' || role === 'org_operator')) {
+      db.prepare('UPDATE organizations SET admin_user_id = ? WHERE id = ?').run(id, organizationId);
+    }
+
     res.status(201).json({ id, message: 'Utente creato' });
   } catch (err) {
     res.status(500).json({ error: 'Errore nella creazione utente' });
@@ -104,7 +122,7 @@ router.post('/users', authenticate, authorize('admin'), (req, res) => {
 // PUT /api/admin/users/:id
 router.put('/users/:id', authenticate, authorize('admin'), (req, res) => {
   try {
-    const { role, isActive, firstName, lastName, phone } = req.body;
+    const { role, isActive, firstName, lastName, phone, organizationId } = req.body;
     const db = getDb();
 
     db.prepare(`
@@ -115,9 +133,38 @@ router.put('/users/:id', authenticate, authorize('admin'), (req, res) => {
       WHERE id = ?
     `).run(role, isActive, firstName, lastName, phone, req.params.id);
 
+    // Gestisci associazione organizzazione
+    if (organizationId !== undefined) {
+      // Rimuovi vecchia associazione
+      db.prepare('UPDATE organizations SET admin_user_id = NULL WHERE admin_user_id = ?').run(req.params.id);
+      // Imposta nuova se specificata
+      if (organizationId) {
+        db.prepare('UPDATE organizations SET admin_user_id = ? WHERE id = ?').run(req.params.id, organizationId);
+      }
+    }
+
     res.json({ message: 'Utente aggiornato' });
   } catch (err) {
     res.status(500).json({ error: 'Errore aggiornamento utente' });
+  }
+});
+
+// PUT /api/admin/users/:id/reset-password
+router.put('/users/:id/reset-password', authenticate, authorize('admin'), (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || password.length < 8) {
+      return res.status(400).json({ error: 'La password deve avere almeno 8 caratteri' });
+    }
+    const db = getDb();
+    const user = db.prepare('SELECT id, email FROM users WHERE id = ?').get(req.params.id);
+    if (!user) return res.status(404).json({ error: 'Utente non trovato' });
+
+    const hash = bcrypt.hashSync(password, 10);
+    db.prepare("UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?").run(hash, req.params.id);
+    res.json({ message: 'Password reimpostata' });
+  } catch (err) {
+    res.status(500).json({ error: 'Errore reset password' });
   }
 });
 
