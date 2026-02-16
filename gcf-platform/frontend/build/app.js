@@ -12,6 +12,7 @@ let state = {
   user: null,
   token: localStorage.getItem('gcf_token'),
   refreshToken: localStorage.getItem('gcf_refresh'),
+  badges: {},
 };
 
 const SERVICE_LABELS = {
@@ -352,15 +353,15 @@ function renderLayout(title, content, actions = '') {
           
           ${isOrg || isAdmin ? `
             <div class="nav-section">Organizzazione</div>
-            <a href="#organizations" class="${getRoute().page === 'organizations' ? 'active' : ''}">🏠 Organizzazioni</a>
-            <a href="#certifications" class="${getRoute().page === 'certifications' ? 'active' : ''}">📜 Certificazioni</a>
+            <a href="#organizations" class="${getRoute().page === 'organizations' ? 'active' : ''}">🏠 Organizzazioni<span id="badge-organizations" class="nav-badge" style="display:none"></span></a>
+            <a href="#certifications" class="${getRoute().page === 'certifications' ? 'active' : ''}">📜 Certificazioni<span id="badge-certifications" class="nav-badge" style="display:none"></span></a>
             <a href="#beneficiaries" class="${getRoute().page === 'beneficiaries' ? 'active' : ''}">👥 Beneficiari</a>
             <a href="#activities" class="${getRoute().page === 'activities' ? 'active' : ''}">📋 Attività</a>
           ` : ''}
           
           ${isAuditor || isAdmin ? `
             <div class="nav-section">Audit</div>
-            <a href="#audits" class="${getRoute().page === 'audits' ? 'active' : ''}">✅ Audit</a>
+            <a href="#audits" class="${getRoute().page === 'audits' ? 'active' : ''}">✅ Audit<span id="badge-audits" class="nav-badge" style="display:none"></span></a>
             
           ` : ''}
 
@@ -373,7 +374,7 @@ function renderLayout(title, content, actions = '') {
             <div class="nav-section">Amministrazione</div>
             <a href="#admin" class="${getRoute().page === 'admin' ? 'active' : ''}">⚙️ Dashboard Admin</a>
             <a href="#admin-users" class="${getRoute().page === 'admin-users' ? 'active' : ''}">👤 Utenti</a>
-            <a href="#admin-reviews" class="${getRoute().page === 'admin-reviews' ? 'active' : ''}">⭐ Recensioni</a>
+            <a href="#admin-reviews" class="${getRoute().page === 'admin-reviews' ? 'active' : ''}">⭐ Recensioni<span id="badge-reviews" class="nav-badge" style="display:none"></span></a>
           ` : ''}
         </div>
         <div class="sidebar-user">
@@ -397,6 +398,37 @@ function renderLayout(title, content, actions = '') {
       </div>
     </div>
   `;
+  loadBadges();
+}
+
+async function loadBadges() {
+  try {
+    const data = await fetch(`${API}/auth/badges`, {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    if (!data.ok) return;
+    const badges = await data.json();
+    state.badges = badges;
+
+    const mapping = {
+      reviews: 'badge-reviews',
+      certifications: 'badge-certifications',
+      organizations: 'badge-organizations',
+      audits: 'badge-audits',
+    };
+
+    for (const [key, elId] of Object.entries(mapping)) {
+      const el = document.getElementById(elId);
+      if (!el) continue;
+      const count = badges[key] || 0;
+      if (count > 0) {
+        el.textContent = count;
+        el.style.display = 'inline-flex';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+  } catch (e) { /* silent */ }
 }
 
 // ============================================================

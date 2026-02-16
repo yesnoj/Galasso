@@ -202,4 +202,37 @@ router.put('/password', authenticate, (req, res) => {
   }
 });
 
+// GET /api/auth/badges - Contatori notifiche per sidebar
+router.get('/badges', authenticate, (req, res) => {
+  try {
+    const db = getDb();
+    const badges = {};
+
+    if (req.user.role === 'admin') {
+      // Recensioni in attesa di moderazione
+      badges.reviews = db.prepare("SELECT COUNT(*) as n FROM reviews WHERE is_published = 0").get().n;
+      // Certificazioni che richiedono azione admin
+      badges.certifications = db.prepare("SELECT COUNT(*) as n FROM certifications WHERE status IN ('submitted','doc_review','doc_approved','audit_completed','approved')").get().n;
+      // Organizzazioni in attesa di attivazione
+      badges.organizations = db.prepare("SELECT COUNT(*) as n FROM organizations WHERE status = 'pending'").get().n;
+      // Audit pianificati o in corso
+      badges.audits = db.prepare("SELECT COUNT(*) as n FROM audits WHERE status IN ('planned','in_progress')").get().n;
+    } else if (req.user.role === 'auditor') {
+      // Audit assegnati da completare
+      badges.audits = db.prepare("SELECT COUNT(*) as n FROM audits WHERE auditor_id = ? AND status IN ('planned','in_progress')").get(req.user.id).n;
+    } else if (req.user.role === 'org_admin' || req.user.role === 'org_operator') {
+      // Certificazioni con aggiornamenti (stati intermedi che richiedono attenzione)
+      const org = db.prepare('SELECT id FROM organizations WHERE admin_user_id = ?').get(req.user.id);
+      if (org) {
+        badges.certifications = db.prepare("SELECT COUNT(*) as n FROM certifications WHERE organization_id = ? AND status IN ('doc_rejected','audit_completed','rejected')").get(org.id).n;
+      }
+    }
+
+    res.json(badges);
+  } catch (err) {
+    console.error('Badges error:', err);
+    res.json({});
+  }
+});
+
 module.exports = router;
