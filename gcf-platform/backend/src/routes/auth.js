@@ -63,7 +63,7 @@ router.post('/register', (req, res) => {
     });
   } catch (err) {
     console.error('Register error:', err);
-    res.status(500).json({ error: 'Errore durante la registrazione' });
+    res.status(500).json({ error: 'Errore durante la registrazione: ' + err.message });
   }
 });
 
@@ -107,7 +107,7 @@ router.post('/login', (req, res) => {
     });
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ error: 'Errore durante il login' });
+    res.status(500).json({ error: 'Errore durante il login: ' + err.message });
   }
 });
 
@@ -174,7 +174,7 @@ router.put('/me', authenticate, (req, res) => {
 
     res.json({ message: 'Profilo aggiornato' });
   } catch (err) {
-    res.status(500).json({ error: 'Errore aggiornamento profilo' });
+    res.status(500).json({ error: 'Errore aggiornamento profilo: ' + err.message });
   }
 });
 
@@ -198,7 +198,7 @@ router.put('/password', authenticate, (req, res) => {
 
     res.json({ message: 'Password aggiornata' });
   } catch (err) {
-    res.status(500).json({ error: 'Errore aggiornamento password' });
+    res.status(500).json({ error: 'Errore aggiornamento password: ' + err.message });
   }
 });
 

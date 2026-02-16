@@ -1,5 +1,6 @@
 /**
  * Routes - Beneficiari e Attività
+ * IMPORTANT: /activities/* routes MUST come before /:id routes
  */
 const express = require('express');
 const router = express.Router();
@@ -7,7 +8,116 @@ const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('../utils/database');
 const { authenticate, authorize } = require('../middleware/auth');
 
-// === BENEFICIARI ===
+// ============================================================
+// ATTIVITÀ (must be BEFORE /:id to avoid route conflict)
+// ============================================================
+
+// GET /api/beneficiaries/activities/list
+router.get('/activities/list', authenticate, (req, res) => {
+  try {
+    const db = getDb();
+    const { organization_id, beneficiary_id, from, to, page = 1, limit = 50 } = req.query;
+    let where = '1=1';
+    let params = [];
+
+    if (req.user.role === 'org_admin' || req.user.role === 'org_operator') {
+      const org = db.prepare('SELECT id FROM organizations WHERE admin_user_id = ?').get(req.user.id);
+      if (org) { where += ' AND al.organization_id = ?'; params.push(org.id); }
+    } else if (organization_id) {
+      where += ' AND al.organization_id = ?';
+      params.push(organization_id);
+    }
+    if (beneficiary_id) { where += ' AND al.beneficiary_id = ?'; params.push(beneficiary_id); }
+    if (from) { where += ' AND al.activity_date >= ?'; params.push(from); }
+    if (to) { where += ' AND al.activity_date <= ?'; params.push(to); }
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    const activities = db.prepare(`
+      SELECT al.*, b.code as beneficiary_code, o.name as org_name
+      FROM activity_logs al
+      LEFT JOIN beneficiaries b ON al.beneficiary_id = b.id
+      JOIN organizations o ON al.organization_id = o.id
+      WHERE ${where}
+      ORDER BY al.activity_date DESC
+      LIMIT ? OFFSET ?
+    `).all(...params, parseInt(limit), offset);
+
+    res.json(activities);
+  } catch (err) {
+    res.status(500).json({ error: 'Errore nel recupero attività' });
+  }
+});
+
+// POST /api/beneficiaries/activities
+router.post('/activities', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
+  try {
+    const { organizationId, beneficiaryId, activityDate, serviceType, durationMinutes, description, participantsCount, notes } = req.body;
+    if (!organizationId || !activityDate || !description) {
+      return res.status(400).json({ error: 'organizationId, activityDate e description obbligatori' });
+    }
+
+    const db = getDb();
+    const id = uuidv4();
+    db.prepare(`
+      INSERT INTO activity_logs (id, organization_id, beneficiary_id, activity_date, service_type, duration_minutes, description, participants_count, operator_id, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, organizationId, beneficiaryId || null, activityDate, serviceType || null, durationMinutes || null, description, participantsCount || 1, req.user.id, notes || null);
+
+    res.status(201).json({ id, message: 'Attività registrata' });
+  } catch (err) {
+    res.status(500).json({ error: 'Errore nella registrazione attività: ' + err.message });
+  }
+});
+
+// PUT /api/beneficiaries/activities/:id
+router.put('/activities/:id', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
+  try {
+    const { activityDate, serviceType, durationMinutes, description, notes } = req.body;
+    const db = getDb();
+    
+    const existing = db.prepare('SELECT * FROM activity_logs WHERE id = ?').get(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Attività non trovata' });
+
+    db.prepare(`
+      UPDATE activity_logs SET 
+        activity_date = ?, service_type = ?,
+        duration_minutes = ?, description = ?,
+        notes = ?
+      WHERE id = ?
+    `).run(
+      activityDate || existing.activity_date,
+      serviceType !== undefined ? serviceType : existing.service_type,
+      durationMinutes !== undefined ? durationMinutes : existing.duration_minutes,
+      description || existing.description,
+      notes !== undefined ? notes : existing.notes,
+      req.params.id
+    );
+
+    res.json({ message: 'Attività aggiornata' });
+  } catch (err) {
+    console.error('Update activity error:', err);
+    res.status(500).json({ error: 'Errore aggiornamento attività: ' + err.message });
+  }
+});
+
+// DELETE /api/beneficiaries/activities/:id
+router.delete('/activities/:id', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
+  try {
+    const db = getDb();
+    const act = db.prepare('SELECT id FROM activity_logs WHERE id = ?').get(req.params.id);
+    if (!act) return res.status(404).json({ error: 'Attività non trovata' });
+
+    db.prepare('DELETE FROM activity_logs WHERE id = ?').run(req.params.id);
+    res.json({ message: 'Attività eliminata' });
+  } catch (err) {
+    res.status(500).json({ error: 'Errore eliminazione attività' });
+  }
+});
+
+// ============================================================
+// BENEFICIARI
+// ============================================================
 
 // GET /api/beneficiaries
 router.get('/', authenticate, (req, res) => {
@@ -62,7 +172,7 @@ router.post('/', authenticate, authorize('admin', 'org_admin', 'org_operator'), 
     if (err.message?.includes('UNIQUE')) {
       return res.status(409).json({ error: 'Codice beneficiario già esistente per questa organizzazione' });
     }
-    res.status(500).json({ error: 'Errore nella registrazione beneficiario' });
+    res.status(500).json({ error: 'Errore nella registrazione beneficiario: ' + err.message });
   }
 });
 
@@ -82,11 +192,34 @@ router.put('/:id', authenticate, authorize('admin', 'org_admin', 'org_operator')
 
     res.json({ message: 'Beneficiario aggiornato' });
   } catch (err) {
-    res.status(500).json({ error: 'Errore aggiornamento beneficiario' });
+    res.status(500).json({ error: 'Errore aggiornamento beneficiario: ' + err.message });
   }
 });
 
-// === PROGETTI INDIVIDUALI ===
+// DELETE /api/beneficiaries/:id
+router.delete('/:id', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
+  try {
+    const db = getDb();
+    const ben = db.prepare('SELECT id FROM beneficiaries WHERE id = ?').get(req.params.id);
+    if (!ben) return res.status(404).json({ error: 'Beneficiario non trovato' });
+
+    const actCount = db.prepare('SELECT COUNT(*) as c FROM activity_logs WHERE beneficiary_id = ?').get(req.params.id);
+    if (actCount.c > 0) {
+      return res.status(400).json({ error: `Impossibile eliminare: ci sono ${actCount.c} attività collegate. Elimina prima le attività.` });
+    }
+
+    db.prepare('DELETE FROM individual_projects WHERE beneficiary_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM monitoring_reports WHERE beneficiary_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM beneficiaries WHERE id = ?').run(req.params.id);
+    res.json({ message: 'Beneficiario eliminato' });
+  } catch (err) {
+    res.status(500).json({ error: 'Errore eliminazione beneficiario' });
+  }
+});
+
+// ============================================================
+// PROGETTI INDIVIDUALI
+// ============================================================
 
 // GET /api/beneficiaries/:id/projects
 router.get('/:id/projects', authenticate, (req, res) => {
@@ -117,67 +250,9 @@ router.post('/:id/projects', authenticate, authorize('admin', 'org_admin', 'org_
   }
 });
 
-// === ATTIVITÀ ===
-
-// GET /api/activities
-router.get('/activities/list', authenticate, (req, res) => {
-  try {
-    const db = getDb();
-    const { organization_id, beneficiary_id, from, to, page = 1, limit = 50 } = req.query;
-    let where = '1=1';
-    let params = [];
-
-    if (req.user.role === 'org_admin' || req.user.role === 'org_operator') {
-      const org = db.prepare('SELECT id FROM organizations WHERE admin_user_id = ?').get(req.user.id);
-      if (org) { where += ' AND al.organization_id = ?'; params.push(org.id); }
-    } else if (organization_id) {
-      where += ' AND al.organization_id = ?';
-      params.push(organization_id);
-    }
-    if (beneficiary_id) { where += ' AND al.beneficiary_id = ?'; params.push(beneficiary_id); }
-    if (from) { where += ' AND al.activity_date >= ?'; params.push(from); }
-    if (to) { where += ' AND al.activity_date <= ?'; params.push(to); }
-
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-
-    const activities = db.prepare(`
-      SELECT al.*, b.code as beneficiary_code, o.name as org_name
-      FROM activity_logs al
-      LEFT JOIN beneficiaries b ON al.beneficiary_id = b.id
-      JOIN organizations o ON al.organization_id = o.id
-      WHERE ${where}
-      ORDER BY al.activity_date DESC
-      LIMIT ? OFFSET ?
-    `).all(...params, parseInt(limit), offset);
-
-    res.json(activities);
-  } catch (err) {
-    res.status(500).json({ error: 'Errore nel recupero attività' });
-  }
-});
-
-// POST /api/activities
-router.post('/activities', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
-  try {
-    const { organizationId, beneficiaryId, activityDate, serviceType, durationMinutes, description, participantsCount, notes } = req.body;
-    if (!organizationId || !activityDate || !description) {
-      return res.status(400).json({ error: 'organizationId, activityDate e description obbligatori' });
-    }
-
-    const db = getDb();
-    const id = uuidv4();
-    db.prepare(`
-      INSERT INTO activity_logs (id, organization_id, beneficiary_id, activity_date, service_type, duration_minutes, description, participants_count, operator_id, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, organizationId, beneficiaryId || null, activityDate, serviceType || null, durationMinutes || null, description, participantsCount || 1, req.user.id, notes || null);
-
-    res.status(201).json({ id, message: 'Attività registrata' });
-  } catch (err) {
-    res.status(500).json({ error: 'Errore nella registrazione attività' });
-  }
-});
-
-// === REPORT MONITORAGGIO ===
+// ============================================================
+// REPORT MONITORAGGIO
+// ============================================================
 
 // POST /api/beneficiaries/:id/reports
 router.post('/:id/reports', authenticate, authorize('admin', 'org_admin', 'org_operator', 'ente_referente'), (req, res) => {
@@ -194,61 +269,6 @@ router.post('/:id/reports', authenticate, authorize('admin', 'org_admin', 'org_o
     res.status(201).json({ id, message: 'Report creato' });
   } catch (err) {
     res.status(500).json({ error: 'Errore nella creazione report' });
-  }
-});
-
-// DELETE /api/beneficiaries/:id
-router.delete('/:id', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
-  try {
-    const db = getDb();
-    const ben = db.prepare('SELECT id FROM beneficiaries WHERE id = ?').get(req.params.id);
-    if (!ben) return res.status(404).json({ error: 'Beneficiario non trovato' });
-
-    const actCount = db.prepare('SELECT COUNT(*) as c FROM activity_logs WHERE beneficiary_id = ?').get(req.params.id);
-    if (actCount.c > 0) {
-      return res.status(400).json({ error: `Impossibile eliminare: ci sono ${actCount.c} attività collegate. Elimina prima le attività.` });
-    }
-
-    db.prepare('DELETE FROM individual_projects WHERE beneficiary_id = ?').run(req.params.id);
-    db.prepare('DELETE FROM monitoring_reports WHERE beneficiary_id = ?').run(req.params.id);
-    db.prepare('DELETE FROM beneficiaries WHERE id = ?').run(req.params.id);
-    res.json({ message: 'Beneficiario eliminato' });
-  } catch (err) {
-    res.status(500).json({ error: 'Errore eliminazione beneficiario' });
-  }
-});
-
-// PUT /api/activities/:id
-router.put('/activities/:id', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
-  try {
-    const { activityDate, serviceType, durationMinutes, description, notes, beneficiaryId } = req.body;
-    const db = getDb();
-
-    db.prepare(`
-      UPDATE activity_logs SET 
-        activity_date = COALESCE(?, activity_date), service_type = COALESCE(?, service_type),
-        duration_minutes = COALESCE(?, duration_minutes), description = COALESCE(?, description),
-        notes = COALESCE(?, notes), beneficiary_id = ?, updated_at = datetime('now')
-      WHERE id = ?
-    `).run(activityDate, serviceType, durationMinutes, description, notes, beneficiaryId || null, req.params.id);
-
-    res.json({ message: 'Attività aggiornata' });
-  } catch (err) {
-    res.status(500).json({ error: 'Errore aggiornamento attività' });
-  }
-});
-
-// DELETE /api/activities/:id
-router.delete('/activities/:id', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
-  try {
-    const db = getDb();
-    const act = db.prepare('SELECT id FROM activity_logs WHERE id = ?').get(req.params.id);
-    if (!act) return res.status(404).json({ error: 'Attività non trovata' });
-
-    db.prepare('DELETE FROM activity_logs WHERE id = ?').run(req.params.id);
-    res.json({ message: 'Attività eliminata' });
-  } catch (err) {
-    res.status(500).json({ error: 'Errore eliminazione attività' });
   }
 });
 

@@ -114,11 +114,14 @@ router.post('/', authenticate, authorize('admin', 'org_admin'), (req, res) => {
     }
 
     const id = uuidv4();
+    // Convert empty strings to null for UNIQUE fields
+    const safeTaxCode = taxCode?.trim() || null;
+    const safeVatNumber = vatNumber?.trim() || null;
     db.prepare(`
       INSERT INTO organizations (id, name, legal_form, tax_code, vat_number, address, city, province, postal_code, region,
       latitude, longitude, phone, email, website, description, social_manager_name, social_manager_role, status, admin_user_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
-    `).run(id, name, legalForm, taxCode || null, vatNumber || null, address, city, province, postalCode || null, region,
+    `).run(id, name, legalForm, safeTaxCode, safeVatNumber, address, city, province, postalCode || null, region,
       latitude || null, longitude || null, phone || null, email || null, website || null, description || null,
       socialManagerName || null, socialManagerRole || null, req.user.id);
 
@@ -137,7 +140,19 @@ router.post('/', authenticate, authorize('admin', 'org_admin'), (req, res) => {
     res.status(201).json({ id, message: 'Organizzazione creata' });
   } catch (err) {
     console.error('Create organization error:', err);
-    res.status(500).json({ error: 'Errore nella creazione organizzazione' });
+    if (err.message?.includes('UNIQUE') && err.message?.includes('tax_code')) {
+      return res.status(409).json({ error: 'Codice fiscale già presente nel sistema. Verifica il valore inserito.' });
+    }
+    if (err.message?.includes('UNIQUE') && err.message?.includes('vat_number')) {
+      return res.status(409).json({ error: 'Partita IVA già presente nel sistema. Verifica il valore inserito.' });
+    }
+    if (err.message?.includes('UNIQUE')) {
+      return res.status(409).json({ error: 'Dato duplicato: un valore inserito è già presente nel sistema.' });
+    }
+    if (err.message?.includes('NOT NULL')) {
+      return res.status(400).json({ error: `Campo obbligatorio mancante: ${err.message}` });
+    }
+    res.status(500).json({ error: `Errore nella creazione organizzazione: ${err.message}` });
   }
 });
 
@@ -159,22 +174,27 @@ router.put('/:id', authenticate, (req, res) => {
       socialManagerName, socialManagerRole, services, targets
     } = req.body;
 
+    // Convert empty strings to null for UNIQUE fields
+    const safeTaxCode = taxCode?.trim() || null;
+    const safeVatNumber = vatNumber?.trim() || null;
+
     db.prepare(`
       UPDATE organizations SET 
         name = COALESCE(?, name), legal_form = COALESCE(?, legal_form),
-        tax_code = COALESCE(?, tax_code), vat_number = COALESCE(?, vat_number),
+        tax_code = ?, vat_number = ?,
         address = COALESCE(?, address), city = COALESCE(?, city),
         province = COALESCE(?, province), postal_code = COALESCE(?, postal_code),
-        region = COALESCE(?, region), latitude = COALESCE(?, latitude),
-        longitude = COALESCE(?, longitude), phone = COALESCE(?, phone),
-        email = COALESCE(?, email), website = COALESCE(?, website),
-        description = COALESCE(?, description),
-        social_manager_name = COALESCE(?, social_manager_name),
-        social_manager_role = COALESCE(?, social_manager_role),
+        region = COALESCE(?, region), latitude = ?,
+        longitude = ?, phone = ?,
+        email = ?, website = ?,
+        description = ?,
+        social_manager_name = ?,
+        social_manager_role = ?,
         updated_at = datetime('now')
       WHERE id = ?
-    `).run(name, legalForm, taxCode, vatNumber, address, city, province, postalCode, region,
-      latitude, longitude, phone, email, website, description, socialManagerName, socialManagerRole, req.params.id);
+    `).run(name, legalForm, safeTaxCode, safeVatNumber, address, city, province, postalCode || null, region,
+      latitude || null, longitude || null, phone || null, email || null, website || null, 
+      description || null, socialManagerName || null, socialManagerRole || null, req.params.id);
 
     // Aggiorna servizi se forniti
     if (services && Array.isArray(services)) {
@@ -193,7 +213,13 @@ router.put('/:id', authenticate, (req, res) => {
     res.json({ message: 'Organizzazione aggiornata' });
   } catch (err) {
     console.error('Update organization error:', err);
-    res.status(500).json({ error: 'Errore aggiornamento organizzazione' });
+    if (err.message?.includes('UNIQUE') && err.message?.includes('tax_code')) {
+      return res.status(409).json({ error: 'Codice fiscale già presente nel sistema.' });
+    }
+    if (err.message?.includes('UNIQUE')) {
+      return res.status(409).json({ error: 'Dato duplicato: un valore inserito è già presente nel sistema.' });
+    }
+    res.status(500).json({ error: `Errore aggiornamento organizzazione: ${err.message}` });
   }
 });
 

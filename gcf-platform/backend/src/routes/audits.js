@@ -122,7 +122,7 @@ router.post('/', authenticate, authorize('admin', 'auditor'), (req, res) => {
     res.status(201).json({ id, message: 'Audit creato con valutazioni pre-compilate' });
   } catch (err) {
     console.error('Create audit error:', err);
-    res.status(500).json({ error: 'Errore nella creazione audit' });
+    res.status(500).json({ error: 'Errore nella creazione audit: ' + err.message });
   }
 });
 
@@ -173,7 +173,7 @@ router.put('/:id/evaluations', authenticate, authorize('admin', 'auditor'), (req
     res.json({ message: 'Valutazioni salvate' });
   } catch (err) {
     console.error('Save evaluations error:', err);
-    res.status(500).json({ error: 'Errore nel salvataggio valutazioni' });
+    res.status(500).json({ error: 'Errore nel salvataggio valutazioni: ' + err.message });
   }
 });
 
@@ -218,7 +218,7 @@ router.put('/:id/complete', authenticate, authorize('admin', 'auditor'), (req, r
     res.json({ message: 'Audit completato', outcome });
   } catch (err) {
     console.error('Complete audit error:', err);
-    res.status(500).json({ error: 'Errore nel completamento audit' });
+    res.status(500).json({ error: 'Errore nel completamento audit: ' + err.message });
   }
 });
 
@@ -296,7 +296,7 @@ router.get('/:id/pdf', authenticate, (req, res) => {
     doc.end();
   } catch (err) {
     console.error('Generate PDF error:', err);
-    res.status(500).json({ error: 'Errore generazione PDF' });
+    res.status(500).json({ error: 'Errore generazione PDF: ' + err.message });
   }
 });
 

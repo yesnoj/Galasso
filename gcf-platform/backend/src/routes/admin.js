@@ -115,7 +115,7 @@ router.post('/users', authenticate, authorize('admin'), (req, res) => {
 
     res.status(201).json({ id, message: 'Utente creato' });
   } catch (err) {
-    res.status(500).json({ error: 'Errore nella creazione utente' });
+    res.status(500).json({ error: 'Errore nella creazione utente: ' + err.message });
   }
 });
 
@@ -145,7 +145,7 @@ router.put('/users/:id', authenticate, authorize('admin'), (req, res) => {
 
     res.json({ message: 'Utente aggiornato' });
   } catch (err) {
-    res.status(500).json({ error: 'Errore aggiornamento utente' });
+    res.status(500).json({ error: 'Errore aggiornamento utente: ' + err.message });
   }
 });
 
@@ -164,7 +164,7 @@ router.put('/users/:id/reset-password', authenticate, authorize('admin'), (req, 
     db.prepare("UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?").run(hash, req.params.id);
     res.json({ message: 'Password reimpostata' });
   } catch (err) {
-    res.status(500).json({ error: 'Errore reset password' });
+    res.status(500).json({ error: 'Errore reset password: ' + err.message });
   }
 });
 

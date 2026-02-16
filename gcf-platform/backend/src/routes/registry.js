@@ -109,6 +109,47 @@ router.get('/stats', (req, res) => {
   }
 });
 
+// ===== REVIEW MODERATION (admin) =====
+
+// GET /api/registry/reviews/pending - Lista recensioni da moderare
+router.get('/reviews/pending', (req, res) => {
+  try {
+    const db = getDb();
+    const reviews = db.prepare(`
+      SELECT r.*, o.name as org_name 
+      FROM reviews r
+      JOIN organizations o ON r.organization_id = o.id
+      WHERE r.is_published = 0
+      ORDER BY r.created_at DESC
+    `).all();
+    res.json(reviews);
+  } catch (err) {
+    res.status(500).json({ error: 'Errore recupero recensioni' });
+  }
+});
+
+// PUT /api/registry/reviews/:id/approve
+router.put('/reviews/:id/approve', (req, res) => {
+  try {
+    const db = getDb();
+    db.prepare('UPDATE reviews SET is_published = 1 WHERE id = ?').run(req.params.id);
+    res.json({ message: 'Recensione approvata' });
+  } catch (err) {
+    res.status(500).json({ error: 'Errore approvazione' });
+  }
+});
+
+// PUT /api/registry/reviews/:id/reject
+router.put('/reviews/:id/reject', (req, res) => {
+  try {
+    const db = getDb();
+    db.prepare('DELETE FROM reviews WHERE id = ?').run(req.params.id);
+    res.json({ message: 'Recensione rifiutata ed eliminata' });
+  } catch (err) {
+    res.status(500).json({ error: 'Errore eliminazione' });
+  }
+});
+
 // GET /api/registry/:id - Dettaglio organizzazione pubblica
 router.get('/:id', (req, res) => {
   try {

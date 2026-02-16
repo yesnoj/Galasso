@@ -45,6 +45,38 @@ const AUDIT_MODE_LABELS = {
   on_site: 'In presenza', remote: 'Da remoto', mixed: 'Mista'
 };
 
+const ITALIAN_PROVINCES = [
+  'AG','AL','AN','AO','AP','AQ','AR','AT','AV','BA','BG','BI','BL','BN','BO','BR','BS','BT','BZ',
+  'CA','CB','CE','CH','CL','CN','CO','CR','CS','CT','CZ','EN','FC','FE','FG','FI','FM','FR','GE',
+  'GO','GR','IM','IS','KR','LC','LE','LI','LO','LT','LU','MB','MC','ME','MI','MN','MO','MS','MT',
+  'NA','NO','NU','OG','OR','OT','PA','PC','PD','PE','PG','PI','PN','PO','PR','PT','PU','PV','PZ',
+  'RA','RC','RE','RG','RI','RM','RN','RO','SA','SI','SO','SP','SR','SS','SU','SV','TA','TE','TN',
+  'TO','TP','TR','TS','TV','UD','VA','VB','VC','VE','VI','VR','VS','VT','VV'
+];
+
+const PROVINCE_REGION_MAP = {
+  'AG':'Sicilia','AL':'Piemonte','AN':'Marche','AO':'Valle d\'Aosta','AP':'Marche','AQ':'Abruzzo',
+  'AR':'Toscana','AT':'Piemonte','AV':'Campania','BA':'Puglia','BG':'Lombardia','BI':'Piemonte',
+  'BL':'Veneto','BN':'Campania','BO':'Emilia-Romagna','BR':'Puglia','BS':'Lombardia','BT':'Puglia',
+  'BZ':'Trentino-Alto Adige','CA':'Sardegna','CB':'Molise','CE':'Campania','CH':'Abruzzo',
+  'CL':'Sicilia','CN':'Piemonte','CO':'Lombardia','CR':'Lombardia','CS':'Calabria','CT':'Sicilia',
+  'CZ':'Calabria','EN':'Sicilia','FC':'Emilia-Romagna','FE':'Emilia-Romagna','FG':'Puglia',
+  'FI':'Toscana','FM':'Marche','FR':'Lazio','GE':'Liguria','GO':'Friuli Venezia Giulia',
+  'GR':'Toscana','IM':'Liguria','IS':'Molise','KR':'Calabria','LC':'Lombardia','LE':'Puglia',
+  'LI':'Toscana','LO':'Lombardia','LT':'Lazio','LU':'Toscana','MB':'Lombardia','MC':'Marche',
+  'ME':'Sicilia','MI':'Lombardia','MN':'Lombardia','MO':'Emilia-Romagna','MS':'Toscana',
+  'MT':'Basilicata','NA':'Campania','NO':'Piemonte','NU':'Sardegna','OR':'Sardegna','PA':'Sicilia',
+  'PC':'Emilia-Romagna','PD':'Veneto','PE':'Abruzzo','PG':'Umbria','PI':'Toscana',
+  'PN':'Friuli Venezia Giulia','PO':'Toscana','PR':'Emilia-Romagna','PT':'Toscana','PU':'Marche',
+  'PV':'Lombardia','PZ':'Basilicata','RA':'Emilia-Romagna','RC':'Calabria','RE':'Emilia-Romagna',
+  'RG':'Sicilia','RI':'Lazio','RM':'Lazio','RN':'Emilia-Romagna','RO':'Veneto','SA':'Campania',
+  'SI':'Toscana','SO':'Lombardia','SP':'Liguria','SR':'Sicilia','SS':'Sardegna','SU':'Sardegna',
+  'SV':'Liguria','TA':'Puglia','TE':'Abruzzo','TN':'Trentino-Alto Adige','TO':'Piemonte',
+  'TP':'Sicilia','TR':'Umbria','TS':'Friuli Venezia Giulia','TV':'Veneto','UD':'Friuli Venezia Giulia',
+  'VA':'Lombardia','VB':'Piemonte','VC':'Piemonte','VE':'Veneto','VI':'Veneto','VR':'Veneto',
+  'VT':'Lazio','VV':'Calabria'
+};
+
 const OUTCOME_LABELS = {
   conforming: 'Conforme',
   conforming_with_actions: 'Conforme con azioni correttive',
@@ -274,6 +306,7 @@ async function router() {
     case 'dashboard': return renderDashboard();
     case 'organizations': return renderOrganizations();
     case 'organization-edit': return renderOrganizationEdit(params);
+    case 'organization-detail': return renderOrganizationDetail(params);
     case 'certifications': return renderCertifications();
     case 'certification-detail': return renderCertificationDetail(params);
     case 'audits': return renderAudits();
@@ -283,6 +316,7 @@ async function router() {
     case 'activities': return renderActivities();
     case 'admin': return renderAdmin();
     case 'admin-users': return renderAdminUsers();
+    case 'admin-reviews': return renderAdminReviews();
     case 'profile': return renderProfile();
     default: navigate(state.user ? 'dashboard' : 'login');
   }
@@ -339,6 +373,7 @@ function renderLayout(title, content, actions = '') {
             <div class="nav-section">Amministrazione</div>
             <a href="#admin" class="${getRoute().page === 'admin' ? 'active' : ''}">⚙️ Dashboard Admin</a>
             <a href="#admin-users" class="${getRoute().page === 'admin-users' ? 'active' : ''}">👤 Utenti</a>
+            <a href="#admin-reviews" class="${getRoute().page === 'admin-reviews' ? 'active' : ''}">⭐ Recensioni</a>
           ` : ''}
         </div>
         <div class="sidebar-user">
@@ -426,9 +461,26 @@ function renderRegister() {
             <div class="form-group"><label>Nome</label><input id="reg-fn" required></div>
             <div class="form-group"><label>Cognome</label><input id="reg-ln" required></div>
           </div>
-          <div class="form-group"><label>Email</label><input type="email" id="reg-email" required></div>
-          <div class="form-group"><label>Password (min 8 caratteri)</label><input type="password" id="reg-pw" required minlength="8"></div>
-          <div class="form-group"><label>Telefono</label><input id="reg-phone"></div>
+          <div class="form-group">
+            <label>Email</label><input type="email" id="reg-email" required>
+            <div id="reg-email-err" style="color:#d32f2f;font-size:12px;display:none;margin-top:4px">Inserisci un indirizzo email valido</div>
+          </div>
+          <div class="form-group">
+            <label>Password (min 8 caratteri)</label>
+            <div style="position:relative">
+              <input type="password" id="reg-pw" required minlength="8" style="padding-right:40px">
+              <button type="button" onclick="togglePwVis('reg-pw',this)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px">👁️</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Conferma password</label>
+            <div style="position:relative">
+              <input type="password" id="reg-pw2" required minlength="8" style="padding-right:40px">
+              <button type="button" onclick="togglePwVis('reg-pw2',this)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px">👁️</button>
+            </div>
+            <div id="reg-pw-err" style="color:#d32f2f;font-size:12px;display:none;margin-top:4px">Le password non coincidono</div>
+          </div>
+          <div class="form-group"><label>Telefono</label>${phoneInputHtml('reg-phone')}</div>
           <div class="form-group"><label>Ruolo</label>
             <select id="reg-role">
               <option value="org_admin">Responsabile organizzazione</option>
@@ -442,14 +494,48 @@ function renderRegister() {
       </div>
     </div>
   `;
+
+  // Email validation on blur
+  const regEmailInput = $('#reg-email');
+  regEmailInput.addEventListener('blur', () => {
+    const v = regEmailInput.value.trim();
+    const err = $('#reg-email-err');
+    if (v && !isValidEmail(v)) { err.style.display = 'block'; regEmailInput.style.borderColor = '#d32f2f'; }
+    else { err.style.display = 'none'; regEmailInput.style.borderColor = ''; }
+  });
+
+  // Password match check in tempo reale
+  const regPw = $('#reg-pw');
+  const regPw2 = $('#reg-pw2');
+  const regPwErr = $('#reg-pw-err');
+  function checkPwMatch() {
+    if (!regPw2.value) { regPwErr.style.display = 'none'; regPw2.style.borderColor = ''; return; }
+    if (regPw.value !== regPw2.value) {
+      regPwErr.style.display = 'block'; regPw2.style.borderColor = '#d32f2f';
+    } else {
+      regPwErr.style.display = 'none'; regPw2.style.borderColor = '#4CAF50';
+    }
+  }
+  regPw2.addEventListener('blur', checkPwMatch);
+  regPw2.addEventListener('input', checkPwMatch);
+  regPw.addEventListener('input', () => { if (regPw2.value) checkPwMatch(); });
+
   $('#reg-form').onsubmit = async (e) => {
     e.preventDefault();
+    const email = $('#reg-email').value.trim();
+    const pw = $('#reg-pw').value;
+    const pw2 = $('#reg-pw2').value;
+
+    if (!isValidEmail(email)) { toast('Inserisci un indirizzo email valido', 'error'); return; }
+    if (pw !== pw2) { $('#reg-pw-err').style.display = 'block'; toast('Le password non coincidono', 'error'); return; }
+    if (pw.length < 8) { toast('La password deve avere almeno 8 caratteri', 'error'); return; }
+
     const data = await api('/auth/register', {
       method: 'POST',
       body: JSON.stringify({
         firstName: $('#reg-fn').value, lastName: $('#reg-ln').value,
-        email: $('#reg-email').value, password: $('#reg-pw').value,
-        phone: $('#reg-phone').value, role: $('#reg-role').value
+        email, password: pw,
+        phone: getPhoneValue('reg-phone'), role: $('#reg-role').value
       })
     });
     if (data) {
@@ -462,6 +548,12 @@ function renderRegister() {
       navigate('dashboard');
     }
   };
+}
+
+function togglePwVis(inputId, btn) {
+  const inp = document.getElementById(inputId);
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁️'; }
 }
 
 // ============================================================
@@ -566,34 +658,56 @@ async function renderDashboard() {
 // PAGE: ORGANIZATIONS
 // ============================================================
 async function renderOrganizations() {
-  renderLayout('Organizzazioni', '<div class="loading"><div class="spinner"></div></div>',
-    `<button class="btn btn-primary btn-sm" onclick="navigate('organization-edit','new')">+ Nuova</button>`);
+  renderLayout('Organizzazioni', '<div class="loading"><div class="spinner"></div></div>');
 
   const data = await api('/organizations');
   if (!data) return;
 
   const orgs = data.data || data;
-  $('#page-content').innerHTML = orgs.length === 0 ? `
-    <div class="empty-state"><div class="icon">🏠</div><h3>Nessuna organizzazione</h3>
-    <p>Crea la tua organizzazione per iniziare</p>
-    <button class="btn btn-primary mt-2" onclick="navigate('organization-edit','new')">+ Crea organizzazione</button></div>
-  ` : `
-    <div class="table-container"><table>
+
+  let tableHtml = '';
+  if (orgs.length === 0) {
+    tableHtml = `<div class="empty-state"><div class="icon">🏠</div><h3>Nessuna organizzazione</h3>
+      <p>Crea la tua organizzazione per iniziare</p></div>`;
+  } else {
+    tableHtml = `<div class="table-container"><table>
       <tr><th>Nome</th><th>Forma giuridica</th><th>Città</th><th>Stato</th><th></th></tr>
       ${orgs.map(o => `<tr>
-        <td><strong>${sanitize(o.name)}</strong></td>
+        <td><strong><a href="#organization-detail/${o.id}" style="color:var(--primary)">${sanitize(o.name)}</a></strong></td>
         <td>${LEGAL_FORMS[o.legal_form] || o.legal_form}</td>
         <td>${sanitize(o.city)} (${o.province})</td>
-        <td>${badge(o.status)}</td>
-        <td><button class="btn btn-secondary btn-sm" onclick="navigate('organization-edit','${o.id}')">Modifica</button></td>
+        <td>${state.user.role === 'admin' ? `
+          <select onchange="changeOrgStatus('${o.id}', this.value)" style="padding:4px 8px;border-radius:6px;border:1px solid #ddd;font-size:13px">
+            <option value="pending" ${o.status==='pending'?'selected':''}>⏳ In attesa</option>
+            <option value="active" ${o.status==='active'?'selected':''}>✅ Attiva</option>
+            <option value="suspended" ${o.status==='suspended'?'selected':''}>⚠️ Sospesa</option>
+            <option value="revoked" ${o.status==='revoked'?'selected':''}>❌ Revocata</option>
+          </select>
+        ` : badge(o.status)}</td>
+        <td><button class="btn btn-secondary btn-sm" onclick="navigate('organization-edit','${o.id}')">✏️</button></td>
       </tr>`).join('')}
-    </table></div>
+    </table></div>`;
+  }
+
+  $('#page-content').innerHTML = `
+    <button class="btn btn-primary mb-2" onclick="navigate('organization-edit','new')">+ Nuova organizzazione</button>
+    ${tableHtml}
   `;
 }
 
 // ============================================================
 // PAGE: ORGANIZATION EDIT
 // ============================================================
+async function changeOrgStatus(orgId, newStatus) {
+  const result = await api(`/organizations/${orgId}/status`, {
+    method: 'PUT', body: JSON.stringify({ status: newStatus })
+  });
+  if (result) {
+    const labels = { pending: 'In attesa', active: 'Attiva', suspended: 'Sospesa', revoked: 'Revocata' };
+    toast(`Stato aggiornato: ${labels[newStatus]}`, 'success');
+  }
+}
+
 async function renderOrganizationEdit(id) {
   const isNew = id === 'new';
   let org = null;
@@ -615,16 +729,24 @@ async function renderOrganizationEdit(id) {
         <div class="form-row-3">
           <div class="form-group"><label>Codice fiscale</label><input id="org-tax" value="${org?.tax_code||''}"></div>
           <div class="form-group"><label>P.IVA</label><input id="org-vat" value="${org?.vat_number||''}"></div>
-          <div class="form-group"><label>Telefono</label><input id="org-phone" value="${org?.phone||''}"></div>
+          <div class="form-group"><label>Telefono</label>${phoneInputHtml('org-phone', org?.phone||'')}</div>
         </div>
         <div class="form-group"><label>Indirizzo *</label><input id="org-addr" value="${sanitize(org?.address||'')}" required></div>
         <div class="form-row-3">
           <div class="form-group"><label>Città *</label><input id="org-city" value="${sanitize(org?.city||'')}" required></div>
-          <div class="form-group"><label>Provincia *</label><input id="org-prov" value="${org?.province||''}" required maxlength="2"></div>
-          <div class="form-group"><label>Regione *</label><input id="org-reg" value="${sanitize(org?.region||'')}" required></div>
+          <div class="form-group"><label>Provincia *</label>
+            <select id="org-prov" required onchange="autoFillRegion()">
+              <option value="">Seleziona...</option>
+              ${ITALIAN_PROVINCES.map(p => `<option value="${p}" ${org?.province===p?'selected':''}>${p}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group"><label>Regione *</label><input id="org-reg" value="${sanitize(org?.region||'')}" required readonly style="background:#f5f5f5"></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Email</label><input type="email" id="org-email" value="${org?.email||''}"></div>
+          <div class="form-group">
+            <label>Email</label><input type="email" id="org-email" value="${org?.email||''}">
+            <div id="org-email-err" style="color:#d32f2f;font-size:12px;display:none;margin-top:4px">Email non valida</div>
+          </div>
           <div class="form-group"><label>Sito web</label><input id="org-web" value="${org?.website||''}"></div>
         </div>
         <div class="form-group"><label>Descrizione</label><textarea id="org-desc">${sanitize(org?.description||'')}</textarea></div>
@@ -644,14 +766,31 @@ async function renderOrganizationEdit(id) {
     </form>
   `);
 
+  // Email validation on blur
+  const orgEmailInput = $('#org-email');
+  if (orgEmailInput) {
+    orgEmailInput.addEventListener('blur', () => {
+      const v = orgEmailInput.value.trim();
+      const err = $('#org-email-err');
+      if (v && !isValidEmail(v)) { err.style.display = 'block'; orgEmailInput.style.borderColor = '#d32f2f'; }
+      else { err.style.display = 'none'; orgEmailInput.style.borderColor = ''; }
+    });
+  }
+
+  // Auto fill region on load if province is set
+  if (org?.province && !org?.region) autoFillRegion();
+
   $('#org-form').onsubmit = async (e) => {
     e.preventDefault();
+    const email = $('#org-email').value.trim();
+    if (email && !isValidEmail(email)) { toast('Inserisci un indirizzo email valido', 'error'); return; }
+
     const body = {
       name: $('#org-name').value, legalForm: $('#org-legal').value,
       taxCode: $('#org-tax').value, vatNumber: $('#org-vat').value,
       address: $('#org-addr').value, city: $('#org-city').value,
       province: $('#org-prov').value, region: $('#org-reg').value,
-      phone: $('#org-phone').value, email: $('#org-email').value,
+      phone: getPhoneValue('org-phone'), email,
       website: $('#org-web').value, description: $('#org-desc').value,
       socialManagerName: $('#org-mgr-name').value, socialManagerRole: $('#org-mgr-role').value,
       latitude: parseFloat($('#org-lat').value) || null, longitude: parseFloat($('#org-lng').value) || null
@@ -661,6 +800,13 @@ async function renderOrganizationEdit(id) {
       : await api(`/organizations/${id}`, { method: 'PUT', body: JSON.stringify(body) });
     if (result) { toast(isNew ? 'Organizzazione creata!' : 'Salvata!', 'success'); navigate('organizations'); }
   };
+}
+
+function autoFillRegion() {
+  const prov = $('#org-prov')?.value;
+  if (prov && PROVINCE_REGION_MAP[prov]) {
+    $('#org-reg').value = PROVINCE_REGION_MAP[prov];
+  }
 }
 
 // ============================================================
@@ -741,6 +887,28 @@ async function renderCertificationDetail(id) {
     certPdfBtn = `<button class="btn btn-primary mt-2" onclick="downloadCertificatePdf('${id}', '${cert.cert_number || 'GCF'}')">📄 Scarica Certificato PDF</button>`;
   }
 
+  // Carica documenti allegati
+  const docs = await api(`/certifications/${id}/documents`) || [];
+  const docsHtml = docs.length > 0 ? `
+    <div class="card mb-2">
+      <div class="card-header"><h3>📎 Documenti allegati (${docs.length})</h3></div>
+      <div class="card-body">
+        ${docs.map(d => `
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <span style="flex:1">📄 <strong>${sanitize(d.file_name)}</strong> <span class="text-sm text-muted">(${(d.file_size/1024).toFixed(0)} KB — ${formatDate(d.created_at)})</span></span>
+            <button class="btn btn-secondary btn-sm" onclick="downloadCertDoc('${d.id}','${sanitize(d.file_name)}')">⬇️</button>
+            ${['admin','org_admin','org_operator'].includes(state.user.role) && ['submitted','doc_review','draft'].includes(cert.status) ?
+              `<button class="btn btn-danger btn-sm" onclick="deleteCertDoc('${id}','${d.id}')">🗑️</button>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
+
+  // Upload addizionale (se in fase di revisione)
+  const canUploadMore = ['admin','org_admin','org_operator'].includes(state.user.role) && ['submitted','doc_review','draft'].includes(cert.status);
+  const uploadBtn = canUploadMore ? `<button class="btn btn-secondary mt-2" onclick="uploadAdditionalDoc('${id}')">📎 Carica documento</button>` : '';
+
   $('#page-content').innerHTML = `
     <div class="card mb-2">
       <div class="card-header"><h3>Certificazione ${cert.cert_number || ''}</h3></div>
@@ -760,8 +928,10 @@ async function renderCertificationDetail(id) {
         ${actionsHtml}
         ${auditBtn}
         ${certPdfBtn}
+        ${uploadBtn}
       </div>
     </div>
+    ${docsHtml}
     ${cert.audits && cert.audits.length > 0 ? `
       <div class="card">
         <div class="card-header"><h3>Audit associati</h3></div>
@@ -779,6 +949,50 @@ async function renderCertificationDetail(id) {
 }
 
 async function updateCertStatus(certId, status) {
+
+async function downloadCertDoc(docId, fileName) {
+  try {
+    const resp = await fetch(`${API}/certifications/doc-download/${docId}`, {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    if (!resp.ok) throw new Error('Download error');
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = fileName; a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) { toast('Errore download documento', 'error'); }
+}
+
+function deleteCertDoc(certId, docId) {
+  showConfirmModal('Eliminare documento?', 'Sei sicuro di voler eliminare questo documento?', async () => {
+    const result = await api(`/certifications/${certId}/documents/${docId}`, { method: 'DELETE' });
+    if (result) { toast('Documento eliminato', 'success'); renderCertificationDetail(certId); }
+  });
+}
+
+function uploadAdditionalDoc(certId) {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.pdf';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf') { toast('Solo file PDF ammessi', 'error'); return; }
+    if (file.size > 10 * 1024 * 1024) { toast('File troppo grande (max 10MB)', 'error'); return; }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('documentName', file.name);
+    formData.append('documentType', 'general');
+    try {
+      const resp = await fetch(`${API}/certifications/${certId}/documents`, {
+        method: 'POST', headers: { 'Authorization': `Bearer ${state.token}` }, body: formData
+      });
+      if (resp.ok) { toast('Documento caricato!', 'success'); renderCertificationDetail(certId); }
+      else { const err = await resp.json(); toast(err.error || 'Errore upload', 'error'); }
+    } catch (err) { toast('Errore upload', 'error'); }
+  };
+  input.click();
+}
   if (status.includes('reject')) {
     showInputModal('Motivo del rifiuto', 'Inserisci la motivazione per il rifiuto della certificazione.', 'Motivazione...', (notes) => {
       doUpdateCertStatus(certId, status, notes);
@@ -844,13 +1058,89 @@ async function requestCertification() {
   const orgId = state.user.organization?.id;
   if (!orgId) { toast('Nessuna organizzazione associata al tuo account', 'error'); return; }
   
-  showConfirmModal('Richiedi certificazione', 'Vuoi inviare la domanda di certificazione Green Care Farm per la tua organizzazione?', async () => {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-modal" style="max-width:520px;text-align:left">
+      <div style="text-align:center">
+        <div class="confirm-modal-icon">📜</div>
+        <h3 class="confirm-modal-title">Richiedi certificazione</h3>
+        <p class="confirm-modal-text">Allega i documenti richiesti per la certificazione (formato PDF, max 10MB ciascuno)</p>
+      </div>
+      <div id="cert-docs-list" style="margin-bottom:16px"></div>
+      <div style="margin-bottom:16px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:12px;border:2px dashed #ccc;border-radius:8px;justify-content:center;color:#666">
+          <input type="file" id="cert-file-input" accept=".pdf" multiple style="display:none">
+          📎 Seleziona file PDF da allegare
+        </label>
+      </div>
+      <div class="confirm-modal-actions" style="justify-content:flex-end">
+        <button class="btn btn-secondary" id="modal-cancel">Annulla</button>
+        <button class="btn btn-primary" id="modal-confirm">Invia domanda</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+
+  let selectedFiles = [];
+
+  overlay.querySelector('#cert-file-input').addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    files.forEach(f => {
+      if (f.type !== 'application/pdf') { toast(`${f.name} non è un PDF`, 'error'); return; }
+      if (f.size > 10 * 1024 * 1024) { toast(`${f.name} supera 10MB`, 'error'); return; }
+      if (!selectedFiles.find(sf => sf.name === f.name)) selectedFiles.push(f);
+    });
+    renderDocsList();
+    e.target.value = '';
+  });
+
+  function renderDocsList() {
+    const list = overlay.querySelector('#cert-docs-list');
+    if (selectedFiles.length === 0) { list.innerHTML = ''; return; }
+    list.innerHTML = selectedFiles.map((f, i) => `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f5f5f5;border-radius:6px;margin-bottom:6px">
+        <span style="flex:1">📄 ${f.name} <span style="color:#999;font-size:12px">(${(f.size/1024).toFixed(0)} KB)</span></span>
+        <button type="button" onclick="this.closest('.modal-overlay').__removeFile(${i})" style="background:none;border:none;cursor:pointer;color:#d32f2f;font-size:16px">✕</button>
+      </div>
+    `).join('');
+  }
+  overlay.__removeFile = (i) => { selectedFiles.splice(i, 1); renderDocsList(); };
+
+  overlay.querySelector('#modal-cancel').onclick = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
+  overlay.onclick = (e) => { if (e.target === overlay) { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); } };
+
+  overlay.querySelector('#modal-confirm').onclick = async () => {
+    overlay.remove();
+    // 1. Create certification
     const result = await api('/certifications', {
       method: 'POST',
       body: JSON.stringify({ organizationId: orgId })
     });
-    if (result) { toast('Domanda di certificazione inviata!', 'success'); renderCertifications(); }
-  });
+    if (!result) return;
+
+    // 2. Upload documents
+    if (selectedFiles.length > 0) {
+      for (const file of selectedFiles) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('documentName', file.name);
+        formData.append('documentType', 'general');
+        try {
+          await fetch(`${API}/certifications/${result.id}/documents`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${state.token}` },
+            body: formData
+          });
+        } catch (err) { console.error('Upload error:', err); }
+      }
+      toast(`Domanda inviata con ${selectedFiles.length} documenti!`, 'success');
+    } else {
+      toast('Domanda di certificazione inviata!', 'success');
+    }
+    renderCertifications();
+  };
 }
 
 // ============================================================
@@ -903,6 +1193,9 @@ async function renderAuditChecklist(auditId) {
   });
 
   let html = `
+    <div style="margin-bottom:12px">
+      <button class="btn btn-secondary btn-sm" onclick="navigate('certification-detail','${audit.certification_id}')">← Torna al dettaglio certificazione</button>
+    </div>
     <div class="card mb-2">
       <div class="card-body flex-between">
         <div>
@@ -1212,7 +1505,7 @@ async function renderActivities() {
           <td>${sanitize(a.org_name)}</td>
           <td>${sanitize(a.beneficiary_code) || 'Gruppo'}</td>
           <td>${SERVICE_LABELS[a.service_type] || a.service_type || '—'}</td>
-          <td>${a.duration_minutes ? a.duration_minutes + ' min' : '—'}</td>
+          <td>${a.duration_minutes ? (a.duration_minutes / 60).toFixed(1).replace('.0','') + ' h' : '—'}</td>
           <td>${sanitize(a.description)}</td>
           ${canAdd ? `<td><div style="display:flex;gap:4px;flex-wrap:nowrap">
             <button class="btn btn-secondary btn-sm" onclick="showEditActivityModal('${a.id}','${a.activity_date||''}','${a.service_type||''}',${a.duration_minutes||'null'},'${sanitize(a.description).replace(/'/g,"\\'")}','${sanitize(a.notes||'').replace(/'/g,"\\'")}','${a.organization_id||''}')">✏️</button>
@@ -1236,7 +1529,7 @@ function showAddActivityModal() {
             <input type="hidden" id="act-org" value="${orgId}">
             <div class="form-row">
               <div class="form-group"><label>Data *</label><input type="date" id="act-date" required value="${new Date().toISOString().split('T')[0]}"></div>
-              <div class="form-group"><label>Durata (minuti)</label><input type="number" id="act-dur" placeholder="120"></div>
+              <div class="form-group"><label>Durata (ore)</label><input type="number" id="act-dur" step="0.5" min="0.5" placeholder="2"></div>
             </div>
             <div class="form-group"><label>Tipo servizio</label>
               <select id="act-type"><option value="">Seleziona...</option>
@@ -1255,7 +1548,7 @@ function showAddActivityModal() {
       method: 'POST',
       body: JSON.stringify({
         organizationId: $('#act-org').value, activityDate: $('#act-date').value,
-        serviceType: $('#act-type').value, durationMinutes: parseInt($('#act-dur').value) || null,
+        serviceType: $('#act-type').value, durationMinutes: Math.round(parseFloat($('#act-dur').value) * 60) || null,
         description: $('#act-desc').value, notes: $('#act-notes').value
       })
     });
@@ -1331,6 +1624,7 @@ function deleteBeneficiary(benId, code) {
 }
 
 function showEditActivityModal(actId, date, serviceType, duration, description, notes, orgId) {
+  const durationHours = duration ? (duration / 60) : '';
   const inputStyle = 'width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px';
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -1340,7 +1634,7 @@ function showEditActivityModal(actId, date, serviceType, duration, description, 
       <h3 class="confirm-modal-title">Modifica Attività</h3></div>
       <div class="form-row" style="margin-bottom:12px">
         <div class="form-group"><label>Data *</label><input type="date" id="ea-date" value="${date}" style="${inputStyle}"></div>
-        <div class="form-group"><label>Durata (minuti)</label><input type="number" id="ea-dur" value="${duration||''}" style="${inputStyle}"></div>
+        <div class="form-group"><label>Durata (ore)</label><input type="number" id="ea-dur" step="0.5" min="0.5" value="${durationHours}" style="${inputStyle}"></div>
       </div>
       <div class="form-group" style="margin-bottom:12px"><label>Tipo servizio</label>
         <select id="ea-type" style="${inputStyle}">
@@ -1369,7 +1663,7 @@ function showEditActivityModal(actId, date, serviceType, duration, description, 
     const body = {
       activityDate: overlay.querySelector('#ea-date').value,
       serviceType: overlay.querySelector('#ea-type').value || null,
-      durationMinutes: parseInt(overlay.querySelector('#ea-dur').value) || null,
+      durationMinutes: Math.round(parseFloat(overlay.querySelector('#ea-dur').value) * 60) || null,
       description: overlay.querySelector('#ea-desc').value.trim(),
       notes: overlay.querySelector('#ea-notes').value.trim() || null,
     };
@@ -1385,6 +1679,127 @@ function deleteActivity(actId) {
     const result = await api(`/beneficiaries/activities/${actId}`, { method: 'DELETE' });
     if (result) { toast('Attività eliminata!', 'success'); renderActivities(); }
   });
+}
+
+// ============================================================
+// PAGE: ORGANIZATION DETAIL (Admin)
+// ============================================================
+async function renderOrganizationDetail(id) {
+  renderLayout('Dettaglio Organizzazione', '<div class="loading"><div class="spinner"></div></div>');
+
+  const org = await api(`/organizations/${id}`);
+  if (!org) return;
+
+  // Load beneficiaries for this org
+  const bens = await api(`/beneficiaries?organization_id=${id}`) || [];
+  // Load activities for this org
+  const activities = await api(`/beneficiaries/activities/list?organization_id=${id}`) || [];
+
+  $('#page-content').innerHTML = `
+    <div class="card mb-2">
+      <div class="card-header" style="background:linear-gradient(135deg,#1a3d17,#2d5a27);color:white;border-radius:8px 8px 0 0">
+        <h3>${sanitize(org.name)}</h3>
+        <span>${badge(org.status)}</span>
+      </div>
+      <div class="card-body">
+        <div class="form-row">
+          <div><strong>Forma giuridica:</strong> ${LEGAL_FORMS[org.legal_form] || org.legal_form}</div>
+          <div><strong>📍 Indirizzo:</strong> ${sanitize(org.address)}, ${sanitize(org.city)} (${org.province}) — ${sanitize(org.region)}</div>
+        </div>
+        <div class="form-row mt-1">
+          <div><strong>📞 Telefono:</strong> ${org.phone || '—'}</div>
+          <div><strong>✉️ Email:</strong> ${org.email || '—'}</div>
+        </div>
+        <div class="form-row mt-1">
+          <div><strong>C.F.:</strong> ${org.tax_code || '—'}</div>
+          <div><strong>P.IVA:</strong> ${org.vat_number || '—'}</div>
+        </div>
+        ${org.social_manager_name ? `<p class="mt-1"><strong>Responsabile servizi:</strong> ${sanitize(org.social_manager_name)} ${org.social_manager_role ? '('+sanitize(org.social_manager_role)+')' : ''}</p>` : ''}
+        <div class="mt-2">
+          <button class="btn btn-secondary btn-sm" onclick="navigate('organization-edit','${id}')">✏️ Modifica</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-2">
+      <div class="card-header"><h3>👥 Beneficiari (${bens.length})</h3></div>
+      <div class="card-body">
+        ${bens.length === 0 ? '<p class="text-muted">Nessun beneficiario registrato</p>' : `
+          <div class="table-container"><table>
+            <tr><th>Codice</th><th>Tipologia</th><th>Stato</th><th>Ente inviante</th><th>Attività</th></tr>
+            ${bens.map(b => `<tr>
+              <td><strong>${sanitize(b.code)}</strong></td>
+              <td>${TARGET_LABELS[b.target_type] || b.target_type || '—'}</td>
+              <td>${badge(b.status)}</td>
+              <td>${sanitize(b.referring_entity) || '—'}</td>
+              <td>${b.activity_count || 0}</td>
+            </tr>`).join('')}
+          </table></div>
+        `}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>📋 Attività recenti (${activities.length})</h3></div>
+      <div class="card-body">
+        ${activities.length === 0 ? '<p class="text-muted">Nessuna attività registrata</p>' : `
+          <div class="table-container"><table>
+            <tr><th>Data</th><th>Beneficiario</th><th>Servizio</th><th>Durata</th><th>Descrizione</th></tr>
+            ${activities.slice(0, 20).map(a => `<tr>
+              <td>${formatDate(a.activity_date)}</td>
+              <td>${sanitize(a.beneficiary_code) || 'Gruppo'}</td>
+              <td>${SERVICE_LABELS[a.service_type] || a.service_type || '—'}</td>
+              <td>${a.duration_minutes ? (a.duration_minutes / 60).toFixed(1).replace('.0','') + ' h' : '—'}</td>
+              <td>${sanitize(a.description)}</td>
+            </tr>`).join('')}
+          </table></div>
+          ${activities.length > 20 ? `<p class="text-sm text-muted mt-1">Mostrate le ultime 20 su ${activities.length} totali</p>` : ''}
+        `}
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// PAGE: ADMIN REVIEWS MODERATION
+// ============================================================
+async function renderAdminReviews() {
+  renderLayout('Moderazione Recensioni', '<div class="loading"><div class="spinner"></div></div>');
+  const reviews = await api('/registry/reviews/pending');
+  if (!reviews) return;
+
+  $('#page-content').innerHTML = reviews.length === 0 ? `
+    <div class="empty-state"><div class="icon">⭐</div><h3>Nessuna recensione da moderare</h3><p>Tutte le recensioni sono state revisionate.</p></div>
+  ` : `
+    <p class="mb-2">${reviews.length} recensione/i in attesa di approvazione</p>
+    ${reviews.map(r => `
+      <div class="card mb-2">
+        <div class="card-body">
+          <div class="flex-between">
+            <div>
+              <strong>${sanitize(r.author_name)}</strong>
+              ${r.author_role ? `<span class="text-sm text-muted"> — ${sanitize(r.author_role)}</span>` : ''}
+            </div>
+            <span>${'⭐'.repeat(r.rating)}</span>
+          </div>
+          <p class="text-sm text-muted mt-1">Organizzazione: <strong>${sanitize(r.org_name)}</strong> — ${formatDate(r.created_at)}</p>
+          ${r.comment ? `<div style="background:#f5f5f5;padding:12px;border-radius:8px;margin-top:8px;border-left:3px solid var(--primary)">${sanitize(r.comment)}</div>` : ''}
+          <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+            <button class="btn btn-danger btn-sm" onclick="moderateReview('${r.id}','reject')">🚫 Rifiuta</button>
+            <button class="btn btn-primary btn-sm" onclick="moderateReview('${r.id}','approve')">✅ Approva</button>
+          </div>
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+async function moderateReview(reviewId, action) {
+  const result = await api(`/registry/reviews/${reviewId}/${action}`, { method: 'PUT' });
+  if (result) {
+    toast(action === 'approve' ? 'Recensione approvata e pubblicata!' : 'Recensione rifiutata e rimossa.', 'success');
+    renderAdminReviews();
+  }
 }
 
 // ============================================================
@@ -1688,7 +2103,7 @@ function phoneInputHtml(id, value = '') {
       <select id="${id}-prefix" style="width:130px;${inputStyle}">
         ${PHONE_PREFIXES.map(p => `<option value="${p.code}" ${p.code===prefix?'selected':''}>${p.country} (${p.code})</option>`).join('')}
       </select>
-      <input type="tel" id="${id}" value="${number}" placeholder="333 1234567" style="flex:1;${inputStyle}">
+      <input type="tel" id="${id}" value="${number}" placeholder="333 1234567" style="flex:1;${inputStyle}" oninput="this.value=this.value.replace(/[^0-9\\s]/g,'')">
     </div>`;
 }
 
@@ -1766,6 +2181,18 @@ async function showCreateUserModal() {
     else { emailErr.style.display = 'none'; emailInput.style.borderColor = '#ddd'; }
   });
   emailInput.addEventListener('input', () => { emailErr.style.display = 'none'; emailInput.style.borderColor = '#ddd'; });
+
+  // Password match check in tempo reale
+  const muPw = overlay.querySelector('#mu-pw');
+  const muPw2 = overlay.querySelector('#mu-pw2');
+  function checkMuPwMatch() {
+    if (!muPw2.value) { muPw2.style.borderColor = '#ddd'; return; }
+    if (muPw.value !== muPw2.value) { muPw2.style.borderColor = '#d32f2f'; }
+    else { muPw2.style.borderColor = '#4CAF50'; }
+  }
+  muPw2.addEventListener('blur', checkMuPwMatch);
+  muPw2.addEventListener('input', checkMuPwMatch);
+  muPw.addEventListener('input', () => { if (muPw2.value) checkMuPwMatch(); });
 
   overlay.querySelector('#modal-cancel').onclick = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
   overlay.onclick = (e) => { if (e.target === overlay) { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); } };
@@ -1896,6 +2323,19 @@ function showResetPasswordModal(id, email) {
 
   overlay.querySelector('#modal-cancel').onclick = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
   overlay.onclick = (e) => { if (e.target === overlay) { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); } };
+
+  // Password match check in tempo reale
+  const rpPw = overlay.querySelector('#rp-pw');
+  const rpPw2 = overlay.querySelector('#rp-pw2');
+  function checkRpPwMatch() {
+    if (!rpPw2.value) { rpPw2.style.borderColor = '#ddd'; return; }
+    if (rpPw.value !== rpPw2.value) { rpPw2.style.borderColor = '#d32f2f'; }
+    else { rpPw2.style.borderColor = '#4CAF50'; }
+  }
+  rpPw2.addEventListener('blur', checkRpPwMatch);
+  rpPw2.addEventListener('input', checkRpPwMatch);
+  rpPw.addEventListener('input', () => { if (rpPw2.value) checkRpPwMatch(); });
+
   overlay.querySelector('#modal-confirm').onclick = async () => {
     const pw = overlay.querySelector('#rp-pw').value;
     const pw2 = overlay.querySelector('#rp-pw2').value;
@@ -1969,6 +2409,20 @@ async function renderProfile() {
     });
     if (result) toast('Profilo aggiornato', 'success');
   };
+
+  // Password match check in tempo reale (profilo)
+  const profPwNew = $('#pw-new');
+  const profPwConf = $('#pw-confirm');
+  if (profPwNew && profPwConf) {
+    function checkProfPwMatch() {
+      if (!profPwConf.value) { profPwConf.style.borderColor = ''; return; }
+      if (profPwNew.value !== profPwConf.value) { profPwConf.style.borderColor = '#d32f2f'; }
+      else { profPwConf.style.borderColor = '#4CAF50'; }
+    }
+    profPwConf.addEventListener('blur', checkProfPwMatch);
+    profPwConf.addEventListener('input', checkProfPwMatch);
+    profPwNew.addEventListener('input', () => { if (profPwConf.value) checkProfPwMatch(); });
+  }
 
   $('#pw-form').onsubmit = async (e) => {
     e.preventDefault();

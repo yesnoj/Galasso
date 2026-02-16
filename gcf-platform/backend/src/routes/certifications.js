@@ -6,6 +6,26 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('../utils/database');
 const { authenticate, authorize } = require('../middleware/auth');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Configure multer for PDF uploads
+const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, '..', '..', 'uploads', 'certifications');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${uuidv4().slice(0,8)}.pdf`)
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') cb(null, true);
+    else cb(new Error('Solo file PDF ammessi'));
+  }
+});
 
 // GET /api/certifications
 router.get('/', authenticate, (req, res) => {
@@ -94,7 +114,7 @@ router.post('/', authenticate, authorize('admin', 'org_admin'), (req, res) => {
     res.status(201).json({ id, message: 'Domanda di certificazione inviata' });
   } catch (err) {
     console.error('Create certification error:', err);
-    res.status(500).json({ error: 'Errore nella creazione domanda' });
+    res.status(500).json({ error: 'Errore nella creazione domanda: ' + err.message });
   }
 });
 
@@ -144,7 +164,7 @@ router.put('/:id/status', authenticate, authorize('admin', 'auditor'), (req, res
     res.json({ message: 'Status certificazione aggiornato', ...updates });
   } catch (err) {
     console.error('Update cert status error:', err);
-    res.status(500).json({ error: 'Errore aggiornamento status' });
+    res.status(500).json({ error: 'Errore aggiornamento status: ' + err.message });
   }
 });
 
@@ -276,7 +296,7 @@ router.get('/:id/certificate-pdf', authenticate, (req, res) => {
     doc.end();
   } catch (err) {
     console.error('Generate certificate PDF error:', err);
-    res.status(500).json({ error: 'Errore generazione certificato PDF' });
+    res.status(500).json({ error: 'Errore generazione certificato PDF: ' + err.message });
   }
 });
 
@@ -285,5 +305,86 @@ function formatDatePdf(dateStr) {
   const d = new Date(dateStr);
   return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
+
+// POST /api/certifications/:id/documents - Upload documento PDF
+router.post('/:id/documents', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      if (err.message === 'Solo file PDF ammessi') return res.status(400).json({ error: err.message });
+      if (err.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ error: 'File troppo grande (max 10MB)' });
+      return res.status(500).json({ error: 'Errore upload' });
+    }
+    if (!req.file) return res.status(400).json({ error: 'Nessun file caricato' });
+
+    try {
+      const db = getDb();
+      const docId = uuidv4();
+      const documentName = req.body.documentName || req.file.originalname;
+
+      db.prepare(`
+        INSERT INTO certification_documents (id, certification_id, requirement_id, document_type, file_path, file_name, file_size, uploaded_by, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+      `).run(docId, req.params.id, req.body.requirementId || 'general', req.body.documentType || 'general',
+        req.file.filename, documentName, req.file.size, req.user.id);
+
+      res.status(201).json({ id: docId, fileName: documentName, message: 'Documento caricato' });
+    } catch (dbErr) {
+      console.error('Doc upload DB error:', dbErr);
+      res.status(500).json({ error: 'Errore salvataggio documento' });
+    }
+  });
+});
+
+// GET /api/certifications/:id/documents - Lista documenti
+router.get('/:id/documents', authenticate, (req, res) => {
+  try {
+    const db = getDb();
+    const docs = db.prepare(`
+      SELECT cd.*, u.first_name || ' ' || u.last_name as uploader_name
+      FROM certification_documents cd
+      LEFT JOIN users u ON cd.uploaded_by = u.id
+      WHERE cd.certification_id = ?
+      ORDER BY cd.created_at DESC
+    `).all(req.params.id);
+    res.json(docs);
+  } catch (err) {
+    res.status(500).json({ error: 'Errore recupero documenti' });
+  }
+});
+
+// GET /api/certifications/doc-download/:docId - Scarica documento
+router.get('/doc-download/:docId', authenticate, (req, res) => {
+  try {
+    const db = getDb();
+    const doc = db.prepare('SELECT * FROM certification_documents WHERE id = ?').get(req.params.docId);
+    if (!doc) return res.status(404).json({ error: 'Documento non trovato' });
+
+    const filePath = path.join(uploadDir, doc.file_path);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File non trovato' });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${doc.file_name}"`);
+    fs.createReadStream(filePath).pipe(res);
+  } catch (err) {
+    res.status(500).json({ error: 'Errore download' });
+  }
+});
+
+// DELETE /api/certifications/:id/documents/:docId - Elimina documento
+router.delete('/:id/documents/:docId', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
+  try {
+    const db = getDb();
+    const doc = db.prepare('SELECT * FROM certification_documents WHERE id = ? AND certification_id = ?').get(req.params.docId, req.params.id);
+    if (!doc) return res.status(404).json({ error: 'Documento non trovato' });
+
+    const filePath = path.join(uploadDir, doc.file_path);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    db.prepare('DELETE FROM certification_documents WHERE id = ?').run(req.params.docId);
+    res.json({ message: 'Documento eliminato' });
+  } catch (err) {
+    res.status(500).json({ error: 'Errore eliminazione' });
+  }
+});
 
 module.exports = router;
