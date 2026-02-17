@@ -1591,9 +1591,13 @@ async function renderBeneficiaries() {
 }
 
 function showAddBeneficiaryModal() {
-  // Necessita dell'org_id - prende dalla prima organizzazione dell'utente
-  const orgSelect = state.user.organization ? `<input type="hidden" id="ben-org" value="${state.user.organization.id}">` : `
-    <div class="form-group"><label>ID Organizzazione</label><input id="ben-org" required></div>`;
+  // Se org_admin/operatore, prendi l'org dall'utente; se admin, mostra dropdown
+  let orgSelect;
+  if (state.user.organization) {
+    orgSelect = `<input type="hidden" id="ben-org" value="${state.user.organization.id}">`;
+  } else {
+    orgSelect = `<div class="form-group"><label>Organizzazione *</label><select id="ben-org" required><option value="">Seleziona organizzazione...</option></select></div>`;
+  }
 
   $('#modal-container').innerHTML = `
     <div class="modal-overlay" onclick="if(event.target===this)this.remove()">
@@ -1628,6 +1632,18 @@ function showAddBeneficiaryModal() {
     });
     if (result) { toast('Beneficiario registrato!', 'success'); renderBeneficiaries(); }
   };
+
+  // Popola dropdown organizzazioni per admin
+  if (!state.user.organization && document.getElementById('ben-org')?.tagName === 'SELECT') {
+    api('/organizations?limit=100').then(res => {
+      if (res && res.data) {
+        const sel = document.getElementById('ben-org');
+        res.data.filter(o => o.status === 'active').forEach(o => {
+          sel.innerHTML += `<option value="${o.id}">${sanitize(o.name)}</option>`;
+        });
+      }
+    });
+  }
 }
 
 // ============================================================
@@ -1665,13 +1681,17 @@ async function renderActivities() {
 
 function showAddActivityModal() {
   const orgId = state.user.organization?.id || '';
+  const orgField = orgId 
+    ? `<input type="hidden" id="act-org" value="${orgId}">`
+    : `<div class="form-group"><label>Organizzazione *</label><select id="act-org" required><option value="">Seleziona organizzazione...</option></select></div>`;
+  
   $('#modal-container').innerHTML = `
     <div class="modal-overlay" onclick="if(event.target===this)this.remove()">
       <div class="modal">
         <div class="modal-header"><h3>Registra Attività</h3><button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button></div>
         <div class="modal-body">
           <form id="act-form">
-            <input type="hidden" id="act-org" value="${orgId}">
+            ${orgField}
             <div class="form-row">
               <div class="form-group"><label>Data *</label><input type="date" id="act-date" required value="${new Date().toISOString().split('T')[0]}"></div>
               <div class="form-group"><label>Durata (ore)</label><input type="number" id="act-dur" step="0.5" min="0.5" placeholder="2"></div>
@@ -1699,6 +1719,18 @@ function showAddActivityModal() {
     });
     if (result) { toast('Attività registrata!', 'success'); renderActivities(); }
   };
+
+  // Popola dropdown organizzazioni per admin
+  if (!orgId && document.getElementById('act-org')?.tagName === 'SELECT') {
+    api('/organizations?limit=100').then(res => {
+      if (res && res.data) {
+        const sel = document.getElementById('act-org');
+        res.data.filter(o => o.status === 'active').forEach(o => {
+          sel.innerHTML += `<option value="${o.id}">${sanitize(o.name)}</option>`;
+        });
+      }
+    });
+  }
 }
 
 async function showEditBeneficiaryModal(benId) {
@@ -2216,8 +2248,10 @@ async function downloadBackup() {
 }
 
 function restoreBackup() {
-  $('#modal-container').innerHTML = `
-    <div class="modal-overlay" onclick="if(event.target===this)this.remove()">
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.onclick = (e) => { if(e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = `
       <div class="modal">
         <div class="modal-header"><h3>📂 Ripristina backup</h3><button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button></div>
         <div class="modal-body">
@@ -2237,8 +2271,8 @@ function restoreBackup() {
           <button class="btn btn-danger btn-block" onclick="confirmRestore()">⚠️ Ripristina backup</button>
         </div>
       </div>
-    </div>
   `;
+  document.body.appendChild(overlay);
 }
 
 async function confirmRestore() {
