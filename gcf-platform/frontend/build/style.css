@@ -13,6 +13,7 @@
   --warning: #f39c12;
   --danger: #e74c3c;
   --info: #3498db;
+  color-scheme: light;
   --radius: 8px;
   --shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
@@ -57,7 +58,10 @@ a:hover { text-decoration: underline; }
 .form-group input, .form-group select, .form-group textarea {
   width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius);
   font-size: 14px; transition: border-color 0.2s; font-family: inherit;
+  background-color: #fff; color: #333; color-scheme: light;
 }
+select, input, textarea { color-scheme: light; background-color: #fff; color: #333; }
+option { background-color: #fff; color: #333; }
 .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
   outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(45,90,39,0.1);
 }
@@ -221,9 +225,9 @@ tr:hover td { background: rgba(45,90,39,0.03); }
   .form-group input, .form-group select, .form-group textarea { font-size: 16px !important; padding: 12px !important; }
 
   /* ALL selects and options on mobile — override inline styles */
-  select { font-size: 16px !important; padding: 10px 12px !important; min-height: 44px !important; border-radius: 8px !important; }
-  option { font-size: 16px !important; padding: 10px 8px !important; }
-  .confirm-modal select, .modal select, .modal-body select { font-size: 16px !important; padding: 10px 12px !important; min-height: 44px !important; width: 100% !important; }
+  select { font-size: 16px !important; padding: 10px 12px !important; min-height: 44px !important; border-radius: 8px !important; background-color: #fff !important; color: #333 !important; -webkit-appearance: none; appearance: none; }
+  option { font-size: 16px !important; padding: 10px 8px !important; background-color: #fff !important; color: #333 !important; }
+  .confirm-modal select, .modal select, .modal-body select { font-size: 16px !important; padding: 10px 12px !important; min-height: 44px !important; width: 100% !important; background-color: #fff !important; color: #333 !important; }
   .confirm-modal input, .modal-body input, .confirm-modal textarea { font-size: 16px !important; padding: 10px 12px !important; min-height: 44px !important; }
   .confirm-modal label, .modal-body label { font-size: 14px !important; }
 

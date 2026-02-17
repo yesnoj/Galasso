@@ -222,18 +222,82 @@ FRONTEND_URL=http://localhost:3000
 
 Il progetto è ottimizzato per deployment su **QNAP TS-253A** (Celeron N3150, 4 GB RAM) ma funziona su qualsiasi host Docker.
 
-```bash
-# Build e avvio
-docker-compose up -d --build
+### Primo deploy
 
+```bash
+# Trasferisci il progetto sul NAS (dal Mac)
+scp -r gcf-platform admin@192.168.1.111:/share/Container/gcf-platform
+
+# Accedi al NAS via SSH
+ssh admin@192.168.1.111
+cd /share/Container/gcf-platform
+
+# Build e avvio (NOTA: su QNAP è "docker compose" senza trattino)
+docker compose up -d --build
+
+# Verifica che il server sia attivo
+docker logs gcf-platform
+# → 🌿 GCF Platform attivo su http://0.0.0.0:3000
+
+# Popola il database con dati di esempio
+docker cp backend/seed.js gcf-platform:/app/seed.js
+docker exec gcf-platform node /app/seed.js
+```
+
+La piattaforma è ora disponibile su **http://192.168.1.111:3000** da qualsiasi dispositivo sulla rete LAN.
+
+### Gestione container
+
+```bash
 # Verifica stato
 docker logs gcf-platform
 
 # Stop
-docker-compose down
+docker compose down
 
-# Stop con rimozione dati
-docker-compose down -v
+# Stop con rimozione dati (⚠️ cancella database e uploads)
+docker compose down -v
+
+# Riavvio dopo modifica file
+docker compose up -d --build
+```
+
+### Aggiornamento file (senza rebuild)
+
+Per aggiornare singoli file senza ricostruire l'immagine:
+
+```bash
+# Frontend (app.js, style.css, index.html)
+docker cp frontend/build/app.js gcf-platform:/app/frontend/build/app.js
+docker cp frontend/build/style.css gcf-platform:/app/frontend/build/style.css
+docker cp frontend/build/index.html gcf-platform:/app/frontend/build/index.html
+
+# Backend (routes, middleware)
+docker cp backend/src/routes/auth.js gcf-platform:/app/src/routes/auth.js
+docker restart gcf-platform   # Necessario solo per file backend
+
+# Rigenerare il seed (resetta il database con dati demo)
+docker cp backend/seed.js gcf-platform:/app/seed.js
+docker exec gcf-platform node /app/seed.js
+```
+
+> 💡 I file frontend non richiedono riavvio — basta un hard refresh nel browser (Cmd+Shift+R / Ctrl+Shift+R).
+
+### Accesso da smartphone (stessa rete WiFi)
+
+Qualsiasi dispositivo connesso alla stessa rete può accedere alla piattaforma:
+
+```
+http://192.168.1.111:3000
+```
+
+Per testare dal Mac in locale (se il server gira anche sul Mac):
+```bash
+# Trova l'IP del Mac
+ipconfig getifaddr en0
+# → es. 192.168.1.44
+
+# Dal telefono: http://192.168.1.44:3000
 ```
 
 ### Risorse allocate
@@ -249,6 +313,19 @@ docker-compose down -v
 |--------|----------------------|-----------|
 | `gcf-data` | `/app/db/` | Database SQLite |
 | `gcf-uploads` | `/app/uploads/` | Documenti PDF |
+
+### Accesso remoto (fuori dalla LAN)
+
+Per accedere alla piattaforma da fuori la rete locale:
+
+- **Tunnel sicuro (consigliato):** Cloudflare Tunnel o ngrok creano un URL pubblico HTTPS senza modificare il router
+- **Port forwarding:** Aprire la porta 3000 sul router verso 192.168.1.111 — richiede configurazione HTTPS
+
+```bash
+# Esempio con ngrok (installare ngrok sul NAS o sul Mac)
+ngrok http 192.168.1.111:3000
+# → https://abc123.ngrok-free.app (URL pubblico temporaneo)
+```
 
 ### Health check
 
@@ -531,12 +608,19 @@ Il file `seed.js` popola il database con dati realistici italiani:
 
 ### Eseguire il seed
 
+**Locale (sviluppo sul Mac):**
 ```bash
 cd backend
 node seed.js
 ```
 
-> Il seed svuota le tabelle dati e le ripopola. Le tabelle di riferimento (aree, requisiti) non vengono toccate.
+**Docker (NAS / produzione):**
+```bash
+docker cp backend/seed.js gcf-platform:/app/seed.js
+docker exec gcf-platform node /app/seed.js
+```
+
+> ⚠️ Il seed svuota le tabelle dati e le ripopola. Le tabelle di riferimento (aree, requisiti) non vengono toccate. Eseguire solo per demo/test, non su dati reali.
 
 ---
 
