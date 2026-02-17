@@ -172,7 +172,7 @@ const DATA = {
   admin: [
     { section: '📊 Dashboard', actions: [
       { name: 'Dashboard generale', type: 'read', detail: 'Panoramica con statistiche cliccabili: organizzazioni, certificazioni, audit, beneficiari, attività, ore, utenti.', steps: ['Ogni card numerica è cliccabile', 'Porta alla sezione corrispondente'] },
-      { name: 'Dashboard Admin', type: 'read', detail: 'Riepilogo avanzato con organizzazioni per stato e utenti per ruolo.', steps: ['Vai su ⚙️ Dashboard Admin nel menu', 'Vedi organizzazioni per stato', 'Vedi utenti per ruolo'] },
+      { name: 'Dashboard Admin', type: 'read', detail: 'Riepilogo avanzato con organizzazioni per stato, utenti per ruolo e card Manutenzione per il backup.', steps: ['Vai su ⚙️ Dashboard Admin nel menu', 'Vedi organizzazioni per stato', 'Vedi utenti per ruolo', 'In fondo: card 💾 Manutenzione con pulsante "Scarica backup database"'] },
     ]},
     { section: '🏠 Organizzazioni', actions: [
       { name: 'Lista organizzazioni', type: 'read', detail: 'Tutte le organizzazioni con nome, forma giuridica, città e stato.', steps: ['Vai su 🏠 Organizzazioni', 'Vedi tutte (incluse "In attesa")'] },
@@ -224,6 +224,8 @@ const DATA = {
       { name: 'Nomi organizzazione cliccabili', type: 'navigate', detail: 'In tutte le tabelle, il nome dell\'organizzazione è un link verde che porta al dettaglio.', steps: ['Lista Certificazioni e Dettaglio', 'Lista Beneficiari', 'Registro Attività', 'Lista Audit e Dashboard Auditor', 'Dashboard Admin (certificazioni in scadenza)'] },
       { name: 'Messaggi errore dettagliati', type: 'read', detail: 'Tutti gli errori mostrano il problema specifico invece di messaggi generici.', steps: ['"Codice fiscale già presente" → C.F. duplicato', '"Partita IVA già presente" → P.IVA duplicata', '"Email già registrata" → email utente esistente', '"Campo obbligatorio mancante" → dettaglio campo'] },
       { name: 'Versione mobile responsive', type: 'read', detail: 'Layout completamente ottimizzato per smartphone. Tabelle trasformate in card, modal a larghezza piena, dropdown leggibili (16px), bottoni touch-friendly (44px min).', steps: ['Tabelle → card layout con etichette (12 tabelle convertite)', 'Sidebar → overlay con backdrop scuro, auto-close', 'Form → colonna singola, font 16px (no auto-zoom iOS)', 'Select/dropdown → 16px !important, min-height 44px', 'Prefisso telefono → flex-wrap per schermi piccoli', 'Bottoni → min-height 44px (standard Apple touch target)'] },
+      { name: 'Backup database', type: 'action', detail: 'Sistema di backup a due livelli: manuale dall\'interfaccia e automatico notturno (ore 3:30, ultimi 30 giorni conservati).', steps: ['Dashboard Admin → card Manutenzione → "💾 Scarica backup database"', 'Scarica file .sqlite con data/ora nel nome', 'Backup automatico notturno sul NAS (cron alle 3:30)', 'Rotazione automatica: conserva ultimi 30 backup', 'Ripristino: docker stop → docker cp backup → docker start'] },
+      { name: 'Accesso remoto', type: 'navigate', detail: 'Accesso alla piattaforma da fuori la rete locale tramite tunnel ngrok sicuro (HTTPS).', steps: ['URL permanente: https://paleethnological-lilia-promarriage.ngrok-free.dev', 'Funziona da qualsiasi dispositivo con internet', 'Prima volta: clicca "Visit Site" sulla pagina ngrok', 'Container ngrok dedicato sul NAS, sempre attivo'] },
     ]},
   ],
 

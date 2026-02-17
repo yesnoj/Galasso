@@ -316,22 +316,54 @@ ipconfig getifaddr en0
 
 ### Accesso remoto (fuori dalla LAN)
 
-Per accedere alla piattaforma da fuori la rete locale:
+La piattaforma è accessibile dall'esterno tramite tunnel ngrok sicuro:
 
-- **Tunnel sicuro (consigliato):** Cloudflare Tunnel o ngrok creano un URL pubblico HTTPS senza modificare il router
-- **Port forwarding:** Aprire la porta 3000 sul router verso 192.168.1.111 — richiede configurazione HTTPS
+**URL permanente:** `https://paleethnological-lilia-promarriage.ngrok-free.dev`
+
+Il tunnel è gestito da un container Docker dedicato sul NAS:
 
 ```bash
-# Esempio con ngrok (installare ngrok sul NAS o sul Mac)
-ngrok http 192.168.1.111:3000
-# → https://abc123.ngrok-free.app (URL pubblico temporaneo)
+# Avvio tunnel (già attivo sul NAS)
+docker run -d --name ngrok --net host \
+  -e NGROK_AUTHTOKEN=<token> \
+  ngrok/ngrok http 3000
+
+# Verifica URL pubblico
+wget -qO- http://localhost:4040/api/tunnels
 ```
+
+Al primo accesso, ngrok mostra una pagina di avviso — cliccare "Visit Site" per procedere.
+
+Alternative per domini personalizzati:
+- **Cloudflare Tunnel** (gratis, richiede dominio su Cloudflare DNS)
+- **ngrok Hobbyist** ($8/mese, dominio tipo `gcf-aicare.ngrok.app`)
 
 ### Health check
 
 ```bash
 curl http://localhost:3000/api/health
 # → { "status": "ok", "timestamp": "..." }
+```
+
+### Backup
+
+La piattaforma include un sistema di backup a due livelli:
+
+**Manuale (dall'interfaccia):** Dashboard Admin → card Manutenzione → "💾 Scarica backup database"
+
+**Automatico notturno (cron sul NAS):**
+
+```bash
+# Script in /share/Container/backups/backup-gcf.sh
+# Eseguito ogni notte alle 3:30, conserva ultimi 30 backup
+
+# Backup manuale
+/share/Container/backups/backup-gcf.sh
+
+# Ripristino
+docker stop gcf-platform
+docker cp /share/Container/backups/gcf-XXXXXXXX.sqlite gcf-platform:/app/db/gcf.sqlite
+docker start gcf-platform
 ```
 
 ---
@@ -473,6 +505,7 @@ SISTEMA
 | GET | `/admin/reviews` | Recensioni da moderare | Admin |
 | PATCH | `/admin/reviews/:id/approve` | Approva recensione | Admin |
 | DELETE | `/admin/reviews/:id` | Rifiuta/elimina recensione | Admin |
+| GET | `/admin/backup` | Scarica backup database (.sqlite) | Admin |
 
 ### Registro Pubblico (`/api/registry`)
 
@@ -487,7 +520,7 @@ SISTEMA
 | GET | `/registry/regions` | Regioni con organizzazioni | No |
 | GET | `/registry/search` | Ricerca organizzazioni | No |
 
-**Totale: 59 endpoint**
+**Totale: 60 endpoint**
 
 ---
 
@@ -632,7 +665,7 @@ docker exec gcf-platform node /app/seed.js
 | **Checklist Audit** | AICARE-GCF-AUD-01 v1.0 | Modulo di verifica per l'auditor |
 | **Certificato** | AICARE-GCF-CERT-01 v1.0 | Template certificato di conformità |
 | **Registro** | AICARE-GCF-REG-01 v1.0 | Registro ufficiale organizzazioni certificate |
-| **Guida Operativa** | v5.0 | Manuale utente completo (30+ pagine) |
+| **Guida Operativa** | v6.0 | Manuale utente completo (30+ pagine) |
 | **Diagramma Ruoli** | HTML interattivo | Mappa interattiva azioni per ruolo |
 | **Schema Flusso** | — | Schema esemplificativo servizi agricoltura sociale |
 
@@ -661,7 +694,7 @@ docker exec gcf-platform node /app/seed.js
 
 **Session 1-3: Fondamenta**
 - Schema database 24 tabelle con init automatico
-- Backend Express.js con 59 endpoint REST
+- Backend Express.js con 60 endpoint REST
 - Frontend SPA vanilla JS con routing hash-based
 - Autenticazione JWT con refresh token
 - CRUD completo organizzazioni, certificazioni, audit
@@ -702,6 +735,17 @@ docker exec gcf-platform node /app/seed.js
 - Guida Operativa v5.0
 - Diagramma ruoli HTML aggiornato
 - README.md completo
+
+**Session 11: Deploy NAS + accesso remoto + backup**
+- Deploy Docker su QNAP TS-253A (192.168.1.111:3000)
+- Seed database integrato nel container (auto-esecuzione al primo avvio)
+- Tunnel ngrok permanente per accesso remoto (HTTPS)
+- Backup manuale dalla Dashboard Admin (card Manutenzione)
+- Backup automatico notturno (cron 3:30, rotazione 30 giorni)
+- API endpoint `GET /admin/backup` con flush su disco prima del download
+- Fix login mobile (`100dvh` + posizionamento primo terzo schermo)
+- Fix `color-scheme: light` per dropdown nativi iOS in dark mode
+- Guida Operativa v6.0 con sezioni backup e accesso remoto
 
 ---
 

@@ -4,9 +4,31 @@
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { getDb } = require('../utils/database');
+const { getDb, saveToFile } = require('../utils/database');
 const { authenticate, authorize } = require('../middleware/auth');
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
+const path = require('path');
+
+// GET /api/admin/backup - Scarica backup database
+router.get('/backup', authenticate, authorize('admin'), (req, res) => {
+  try {
+    saveToFile(); // Salva dati in memoria su disco prima del backup
+    const dbPath = process.env.DB_PATH || './db/gcf.sqlite';
+    if (!fs.existsSync(dbPath)) {
+      return res.status(404).json({ error: 'Database non trovato' });
+    }
+    const date = new Date().toISOString().replace(/[T:]/g, '-').slice(0, 19);
+    const filename = `gcf-backup-${date}.sqlite`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/x-sqlite3');
+    const stream = fs.createReadStream(dbPath);
+    stream.pipe(res);
+  } catch (err) {
+    console.error('Backup error:', err);
+    res.status(500).json({ error: 'Errore durante il backup' });
+  }
+});
 
 // GET /api/admin/dashboard
 router.get('/dashboard', authenticate, authorize('admin'), (req, res) => {

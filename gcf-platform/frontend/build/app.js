@@ -2181,10 +2181,36 @@ async function renderAdmin() {
         <div class="card-body">${stats.users.byRole.map(r => `<p><strong>${ROLE_LABELS[r.role] || r.role}:</strong> ${r.count}</p>`).join('')}</div>
       </div>
     </div>
+    <div class="card mt-2">
+      <div class="card-header"><h3>💾 Manutenzione</h3></div>
+      <div class="card-body">
+        <p style="margin-bottom:12px;color:#666;font-size:14px">Scarica una copia del database per backup o archiviazione.</p>
+        <button class="btn btn-secondary" onclick="downloadBackup()">💾 Scarica backup database</button>
+      </div>
+    </div>
   `;
 }
 
 const ROLE_LABELS = { admin:'Amministratore', auditor:'Auditor', org_admin:'Admin Organizzazione', org_operator:'Operatore', ente_referente:'Ente Referente' };
+
+async function downloadBackup() {
+  try {
+    const resp = await fetch('/api/admin/backup', { headers: { 'Authorization': 'Bearer ' + state.token } });
+    if (!resp.ok) throw new Error('Errore download');
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = resp.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] || 'gcf-backup.sqlite';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast('Backup scaricato!', 'success');
+  } catch (err) {
+    toast('Errore durante il backup: ' + err.message, 'error');
+  }
+}
 const ROLE_OPTIONS = ['admin','auditor','org_admin','org_operator','ente_referente'];
 
 // ============================================================
