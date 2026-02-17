@@ -148,7 +148,7 @@ gcf-platform/
 │       ├── middleware/
 │       │   └── auth.js         # JWT authentication + role check
 │       ├── routes/
-│       │   ├── admin.js        # Dashboard admin, utenti, recensioni
+│       │   ├── admin.js        # Dashboard admin, utenti, backup/restore
 │       │   ├── audits.js       # CRUD audit + checklist + PDF
 │       │   ├── auth.js         # Login, registrazione, profilo, badge
 │       │   ├── beneficiaries.js # CRUD beneficiari + attività
@@ -156,13 +156,20 @@ gcf-platform/
 │       │   ├── organizations.js # CRUD organizzazioni
 │       │   └── registry.js     # Registro pubblico + recensioni
 │       └── utils/
-│           └── database.js     # Wrapper sql.js con auto-save
+│           └── database.js     # Wrapper sql.js con auto-save + reload
 │
-└── frontend/
-    └── build/
-        ├── index.html          # Shell HTML (15 righe)
-        ├── app.js              # Intera applicazione SPA (2600+ LOC)
-        └── style.css           # Stili + responsive (350+ LOC)
+├── frontend/
+│   └── build/
+│       ├── index.html          # Shell HTML (15 righe)
+│       ├── app.js              # Intera applicazione SPA (2600+ LOC)
+│       └── style.css           # Stili + responsive (350+ LOC)
+│
+├── scripts/
+│   └── backup-gcf.sh           # Script backup notturno (cron sul NAS)
+│
+└── docs/
+    ├── GCF_Guida_Operativa_v6.docx  # Manuale utente completo
+    └── gcf-diagramma-ruoli.html     # Diagramma interattivo ruoli/azioni
 ```
 
 ---
@@ -347,22 +354,29 @@ curl http://localhost:3000/api/health
 
 ### Backup
 
-La piattaforma include un sistema di backup a due livelli:
+Il sistema di backup include **database + documenti PDF** in un unico file .zip.
 
-**Manuale (dall'interfaccia):** Dashboard Admin → card Manutenzione → "💾 Scarica backup database"
+**Manuale (dall'interfaccia):** Dashboard Admin → card Manutenzione:
+- "💾 Scarica backup" → scarica .zip con database + tutti i PDF
+- "📂 Ripristina backup" → carica .zip (completo) o .sqlite (solo database)
 
 **Automatico notturno (cron sul NAS):**
 
 ```bash
-# Script in /share/Container/backups/backup-gcf.sh
+# Lo script è in scripts/backup-gcf.sh (nel repo)
+# Sul NAS va copiato in /share/Container/backups/backup-gcf.sh
 # Eseguito ogni notte alle 3:30, conserva ultimi 30 backup
 
 # Backup manuale
 /share/Container/backups/backup-gcf.sh
 
-# Ripristino
+# Ripristino da interfaccia: Dashboard Admin → 📂 Ripristina backup
+# Ripristino manuale da riga di comando:
 docker stop gcf-platform
-docker cp /share/Container/backups/gcf-XXXXXXXX.sqlite gcf-platform:/app/db/gcf.sqlite
+docker cp /share/Container/backups/gcf-XXXXXXXX.tar.gz /tmp/
+cd /tmp && tar xzf gcf-XXXXXXXX.tar.gz
+docker cp gcf.sqlite gcf-platform:/app/db/gcf.sqlite
+docker cp uploads/ gcf-platform:/app/uploads/
 docker start gcf-platform
 ```
 
@@ -505,7 +519,8 @@ SISTEMA
 | GET | `/admin/reviews` | Recensioni da moderare | Admin |
 | PATCH | `/admin/reviews/:id/approve` | Approva recensione | Admin |
 | DELETE | `/admin/reviews/:id` | Rifiuta/elimina recensione | Admin |
-| GET | `/admin/backup` | Scarica backup database (.sqlite) | Admin |
+| GET | `/admin/backup` | Scarica backup completo (.zip con db + PDF) | Admin |
+| POST | `/admin/restore` | Ripristina backup da .zip o .sqlite | Admin |
 
 ### Registro Pubblico (`/api/registry`)
 
@@ -520,7 +535,7 @@ SISTEMA
 | GET | `/registry/regions` | Regioni con organizzazioni | No |
 | GET | `/registry/search` | Ricerca organizzazioni | No |
 
-**Totale: 60 endpoint**
+**Totale: 61 endpoint**
 
 ---
 
@@ -659,15 +674,18 @@ docker exec gcf-platform node /app/seed.js
 
 ## Documentazione allegata
 
-| Documento | Codice | Descrizione |
-|-----------|--------|-------------|
-| **Standard** | AICARE-GCF-STD-01 v1.0 | Requisiti minimi per la certificazione |
-| **Checklist Audit** | AICARE-GCF-AUD-01 v1.0 | Modulo di verifica per l'auditor |
-| **Certificato** | AICARE-GCF-CERT-01 v1.0 | Template certificato di conformità |
-| **Registro** | AICARE-GCF-REG-01 v1.0 | Registro ufficiale organizzazioni certificate |
-| **Guida Operativa** | v6.0 | Manuale utente completo (30+ pagine) |
-| **Diagramma Ruoli** | HTML interattivo | Mappa interattiva azioni per ruolo |
-| **Schema Flusso** | — | Schema esemplificativo servizi agricoltura sociale |
+I documenti AICARE di riferimento sono nella root del progetto. La documentazione della piattaforma è nella cartella `docs/`.
+
+| Documento | Posizione | Descrizione |
+|-----------|-----------|-------------|
+| **Standard** AICARE-GCF-STD-01 v1.0 | root | Requisiti minimi per la certificazione |
+| **Checklist Audit** AICARE-GCF-AUD-01 v1.0 | root | Modulo di verifica per l'auditor |
+| **Certificato** AICARE-GCF-CERT-01 v1.0 | root | Template certificato di conformità |
+| **Registro** AICARE-GCF-REG-01 v1.0 | root | Registro ufficiale organizzazioni certificate |
+| **Schema Flusso** | root | Schema esemplificativo servizi agricoltura sociale |
+| **Guida Operativa** v6.0 | `docs/` | Manuale utente completo (30+ pagine) |
+| **Diagramma Ruoli** | `docs/` | Mappa interattiva HTML azioni per ruolo |
+| **Script Backup** | `scripts/` | Script backup notturno per cron NAS |
 
 ---
 
@@ -694,7 +712,7 @@ docker exec gcf-platform node /app/seed.js
 
 **Session 1-3: Fondamenta**
 - Schema database 24 tabelle con init automatico
-- Backend Express.js con 60 endpoint REST
+- Backend Express.js con 61 endpoint REST
 - Frontend SPA vanilla JS con routing hash-based
 - Autenticazione JWT con refresh token
 - CRUD completo organizzazioni, certificazioni, audit
@@ -736,16 +754,18 @@ docker exec gcf-platform node /app/seed.js
 - Diagramma ruoli HTML aggiornato
 - README.md completo
 
-**Session 11: Deploy NAS + accesso remoto + backup**
+**Session 11: Deploy NAS + accesso remoto + backup completo**
 - Deploy Docker su QNAP TS-253A (192.168.1.111:3000)
 - Seed database integrato nel container (auto-esecuzione al primo avvio)
 - Tunnel ngrok permanente per accesso remoto (HTTPS)
-- Backup manuale dalla Dashboard Admin (card Manutenzione)
-- Backup automatico notturno (cron 3:30, rotazione 30 giorni)
-- API endpoint `GET /admin/backup` con flush su disco prima del download
+- Backup completo (database + documenti PDF) in file .zip dall'interfaccia admin
+- Ripristino backup da .zip (completo) o .sqlite (solo db) con validazione e sicurezza
+- Backup automatico notturno (cron 3:30, rotazione 30 giorni, db + uploads)
+- API endpoint `GET /admin/backup` e `POST /admin/restore`
 - Fix login mobile (`100dvh` + posizionamento primo terzo schermo)
 - Fix `color-scheme: light` per dropdown nativi iOS in dark mode
-- Guida Operativa v6.0 con sezioni backup e accesso remoto
+- Dipendenze aggiunte: `archiver`, `adm-zip`
+- Guida Operativa v6.0 con sezioni backup/ripristino e accesso remoto
 
 ---
 

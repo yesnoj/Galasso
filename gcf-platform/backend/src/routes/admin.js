@@ -4,30 +4,149 @@
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { getDb, saveToFile } = require('../utils/database');
+const { getDb, saveToFile, reloadDb } = require('../utils/database');
 const { authenticate, authorize } = require('../middleware/auth');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
+const multer = require('multer');
+const archiver = require('archiver');
+const AdmZip = require('adm-zip');
 
-// GET /api/admin/backup - Scarica backup database
+// Multer per upload backup .zip
+const backupUpload = multer({ 
+  dest: '/tmp/',
+  limits: { fileSize: 200 * 1024 * 1024 } // 200 MB max
+});
+
+// GET /api/admin/backup - Scarica backup completo (database + documenti) come .zip
 router.get('/backup', authenticate, authorize('admin'), (req, res) => {
   try {
-    saveToFile(); // Salva dati in memoria su disco prima del backup
+    saveToFile();
     const dbPath = process.env.DB_PATH || './db/gcf.sqlite';
+    const uploadsDir = process.env.UPLOAD_DIR || './uploads';
+    
     if (!fs.existsSync(dbPath)) {
       return res.status(404).json({ error: 'Database non trovato' });
     }
+
     const date = new Date().toISOString().replace(/[T:]/g, '-').slice(0, 19);
-    const filename = `gcf-backup-${date}.sqlite`;
+    const filename = `gcf-backup-${date}.zip`;
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Content-Type', 'application/x-sqlite3');
-    const stream = fs.createReadStream(dbPath);
-    stream.pipe(res);
+    res.setHeader('Content-Type', 'application/zip');
+
+    const archive = archiver('zip', { zlib: { level: 5 } });
+    archive.on('error', (err) => { throw err; });
+    archive.pipe(res);
+
+    // Aggiungi database
+    archive.file(dbPath, { name: 'gcf.sqlite' });
+
+    // Aggiungi cartella uploads se esiste
+    if (fs.existsSync(uploadsDir)) {
+      archive.directory(uploadsDir, 'uploads');
+    }
+
+    archive.finalize();
   } catch (err) {
     console.error('Backup error:', err);
     res.status(500).json({ error: 'Errore durante il backup' });
   }
+});
+
+// POST /api/admin/restore - Ripristina backup completo da .zip
+router.post('/restore', authenticate, authorize('admin'), (req, res) => {
+  backupUpload.single('backup')(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message || 'Errore upload' });
+    if (!req.file) return res.status(400).json({ error: 'Nessun file caricato' });
+
+    try {
+      const filePath = req.file.path;
+      const dbPath = process.env.DB_PATH || './db/gcf.sqlite';
+      const uploadsDir = process.env.UPLOAD_DIR || './uploads';
+
+      // Verifica formato file
+      const isZip = req.file.originalname.endsWith('.zip');
+      const isSqlite = req.file.originalname.endsWith('.sqlite') || req.file.originalname.endsWith('.db');
+
+      if (!isZip && !isSqlite) {
+        fs.unlinkSync(filePath);
+        return res.status(400).json({ error: 'Formato non supportato. Usa file .zip (backup completo) o .sqlite (solo database)' });
+      }
+
+      // Salva backup corrente prima di sovrascrivere
+      saveToFile();
+      const backupSuffix = '.pre-restore-' + Date.now();
+      if (fs.existsSync(dbPath)) {
+        fs.copyFileSync(dbPath, dbPath + backupSuffix);
+      }
+
+      if (isZip) {
+        // Estrai zip
+        const zip = new AdmZip(filePath);
+        const entries = zip.getEntries();
+        
+        // Cerca il database dentro lo zip
+        const dbEntry = entries.find(e => e.entryName === 'gcf.sqlite' || e.entryName.endsWith('.sqlite'));
+        if (!dbEntry) {
+          fs.unlinkSync(filePath);
+          return res.status(400).json({ error: 'Lo zip non contiene un file .sqlite' });
+        }
+
+        // Valida database
+        const dbBuf = dbEntry.getData();
+        const header = dbBuf.slice(0, 16).toString('ascii');
+        if (!header.startsWith('SQLite format 3')) {
+          fs.unlinkSync(filePath);
+          return res.status(400).json({ error: 'Il file database nello zip non è un SQLite valido' });
+        }
+
+        // Scrivi database
+        fs.writeFileSync(dbPath, dbBuf);
+
+        // Estrai uploads se presenti
+        const uploadEntries = entries.filter(e => e.entryName.startsWith('uploads/') && !e.isDirectory);
+        if (uploadEntries.length > 0) {
+          // Pulisci uploads esistenti
+          if (fs.existsSync(uploadsDir)) {
+            fs.rmSync(uploadsDir, { recursive: true, force: true });
+          }
+          fs.mkdirSync(uploadsDir, { recursive: true });
+          
+          for (const entry of uploadEntries) {
+            const outPath = path.join(uploadsDir, '..', entry.entryName);
+            const outDir = path.dirname(outPath);
+            if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+            fs.writeFileSync(outPath, entry.getData());
+          }
+        }
+
+      } else {
+        // File .sqlite diretto
+        const buf = fs.readFileSync(filePath);
+        const header = buf.slice(0, 16).toString('ascii');
+        if (!header.startsWith('SQLite format 3')) {
+          fs.unlinkSync(filePath);
+          return res.status(400).json({ error: 'Il file non è un database SQLite valido' });
+        }
+        fs.copyFileSync(filePath, dbPath);
+      }
+
+      fs.unlinkSync(filePath);
+
+      // Ricarica database in memoria
+      await reloadDb();
+
+      const msg = isZip 
+        ? 'Backup completo ripristinato (database + documenti). Effettua un nuovo login.' 
+        : 'Database ripristinato. Effettua un nuovo login.';
+      res.json({ message: msg });
+    } catch (err) {
+      console.error('Restore error:', err);
+      if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+      res.status(500).json({ error: 'Errore durante il ripristino: ' + err.message });
+    }
+  });
 });
 
 // GET /api/admin/dashboard

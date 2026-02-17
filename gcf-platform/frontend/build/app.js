@@ -2184,8 +2184,11 @@ async function renderAdmin() {
     <div class="card mt-2">
       <div class="card-header"><h3>💾 Manutenzione</h3></div>
       <div class="card-body">
-        <p style="margin-bottom:12px;color:#666;font-size:14px">Scarica una copia del database per backup o archiviazione.</p>
-        <button class="btn btn-secondary" onclick="downloadBackup()">💾 Scarica backup database</button>
+        <p style="margin-bottom:12px;color:#666;font-size:14px">Backup completo: database + documenti PDF in un unico file .zip</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary" onclick="downloadBackup()">💾 Scarica backup</button>
+          <button class="btn btn-secondary" onclick="restoreBackup()">📂 Ripristina backup</button>
+        </div>
       </div>
     </div>
   `;
@@ -2201,7 +2204,7 @@ async function downloadBackup() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = resp.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] || 'gcf-backup.sqlite';
+    a.download = resp.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] || 'gcf-backup.zip';
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -2209,6 +2212,62 @@ async function downloadBackup() {
     toast('Backup scaricato!', 'success');
   } catch (err) {
     toast('Errore durante il backup: ' + err.message, 'error');
+  }
+}
+
+function restoreBackup() {
+  $('#modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)this.remove()">
+      <div class="modal">
+        <div class="modal-header"><h3>📂 Ripristina backup</h3><button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button></div>
+        <div class="modal-body">
+          <div class="alert alert-danger" style="margin-bottom:16px">
+            <strong>⚠️ Attenzione:</strong> Il ripristino sovrascrive TUTTI i dati attuali con quelli del backup selezionato. 
+            Prima del ripristino viene salvata automaticamente una copia di sicurezza. 
+            Dopo il ripristino dovrai effettuare un nuovo login.
+          </div>
+          <div class="form-group">
+            <label>Seleziona file di backup</label>
+            <input type="file" id="restore-file" accept=".zip,.sqlite,.db" style="padding:10px">
+            <p style="font-size:12px;color:#666;margin-top:6px">
+              <strong>.zip</strong> — backup completo (database + documenti PDF)<br>
+              <strong>.sqlite</strong> — solo database (senza documenti)
+            </p>
+          </div>
+          <button class="btn btn-danger btn-block" onclick="confirmRestore()">⚠️ Ripristina backup</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function confirmRestore() {
+  const fileInput = document.getElementById('restore-file');
+  if (!fileInput.files.length) { toast('Seleziona un file di backup', 'error'); return; }
+  
+  const file = fileInput.files[0];
+  const validExt = ['.zip', '.sqlite', '.db'];
+  if (!validExt.some(ext => file.name.endsWith(ext))) {
+    toast('Formato non supportato. Usa .zip, .sqlite o .db', 'error'); return;
+  }
+
+  const formData = new FormData();
+  formData.append('backup', file);
+
+  try {
+    const resp = await fetch('/api/admin/restore', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + state.token },
+      body: formData
+    });
+    const result = await resp.json();
+    if (!resp.ok) throw new Error(result.error || 'Errore ripristino');
+    
+    document.querySelector('.modal-overlay')?.remove();
+    toast('Database ripristinato! Nuovo login tra 3 secondi...', 'success');
+    setTimeout(() => { state.token = null; state.user = null; localStorage.removeItem('gcf_token'); navigate('login'); }, 3000);
+  } catch (err) {
+    toast('Errore: ' + err.message, 'error');
   }
 }
 const ROLE_OPTIONS = ['admin','auditor','org_admin','org_operator','ente_referente'];

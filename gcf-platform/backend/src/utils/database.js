@@ -96,4 +96,17 @@ function getDb() {
 
 function closeDb() { try { getDb().close(); } catch(e) {} }
 
-module.exports = { initDb, getDb, closeDb, saveToFile };
+async function reloadDb() {
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  if (db) { db.close(); db = null; }
+  const SQL = await initSqlJs();
+  if (fs.existsSync(DB_PATH)) {
+    const buf = fs.readFileSync(DB_PATH);
+    db = new SQL.Database(buf);
+  } else {
+    db = new SQL.Database();
+  }
+  db.run('PRAGMA foreign_keys = ON');
+}
+
+module.exports = { initDb, getDb, closeDb, saveToFile, reloadDb };
