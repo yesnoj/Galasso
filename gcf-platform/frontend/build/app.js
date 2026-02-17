@@ -151,6 +151,26 @@ async function refreshAuth() {
 function $(sel) { return document.querySelector(sel); }
 function $$(sel) { return document.querySelectorAll(sel); }
 
+function toggleSidebar() {
+  const sidebar = $('#sidebar');
+  const backdrop = $('#sidebar-backdrop');
+  sidebar.classList.toggle('open');
+  if (backdrop) backdrop.classList.toggle('visible', sidebar.classList.contains('open'));
+}
+
+function closeSidebar() {
+  const sidebar = $('#sidebar');
+  const backdrop = $('#sidebar-backdrop');
+  if (sidebar) sidebar.classList.remove('open');
+  if (backdrop) backdrop.classList.remove('visible');
+}
+
+function closeSidebarOnNav(e) {
+  if (e.target.closest('a') && window.innerWidth <= 768) {
+    closeSidebar();
+  }
+}
+
 function toast(msg, type = 'info') {
   const container = $('#toast-container');
   const t = document.createElement('div');
@@ -340,13 +360,14 @@ function renderLayout(title, content, actions = '') {
 
   $('#app').innerHTML = `
     <div class="app-container">
+      <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeSidebar()"></div>
       <nav class="sidebar" id="sidebar">
         <div class="sidebar-brand">
           <div style="font-size:32px">🌿</div>
           <h2>Green Care Farm</h2>
           <small>Certificata - AICARE</small>
         </div>
-        <div class="sidebar-nav">
+        <div class="sidebar-nav" onclick="closeSidebarOnNav(event)">
           <div class="nav-section">Principale</div>
           <a href="#dashboard" class="${getRoute().page === 'dashboard' ? 'active' : ''}">📊 Dashboard</a>
           <a href="#registry" class="${getRoute().page === 'registry' ? 'active' : ''}">🗂️ Registro Pubblico</a>
@@ -385,7 +406,7 @@ function renderLayout(title, content, actions = '') {
       <div class="main-content">
         <div class="page-header">
           <div class="flex gap-1" style="align-items:center">
-            <button class="mobile-menu-btn" onclick="$('#sidebar').classList.toggle('open')">☰</button>
+            <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
             <h2>${title}</h2>
           </div>
           <div class="flex gap-1" style="align-items:center">
@@ -614,11 +635,11 @@ async function renderDashboard() {
       ${stats.certifications.expiringSoon.length > 0 ? `
         <div class="card mb-2">
           <div class="card-header"><h3>⚠️ Certificazioni in scadenza (90 giorni)</h3></div>
-          <div class="card-body"><div class="table-container"><table>
-            <tr><th>Organizzazione</th><th>N. Certificato</th><th>Scadenza</th></tr>
-            ${stats.certifications.expiringSoon.map(c => `
-              <tr><td><a href="#organization-detail/${c.organization_id}" style="color:var(--primary)">${sanitize(c.org_name)}</a></td><td>${c.cert_number}</td><td>${formatDate(c.expiry_date)}</td></tr>
-            `).join('')}
+          <div class="card-body"><div class="table-container"><table class="card-table">
+            <thead><tr><th>Organizzazione</th><th>N. Certificato</th><th>Scadenza</th></tr></thead>
+            <tbody>${stats.certifications.expiringSoon.map(c => `
+              <tr><td data-label="Organizzazione"><a href="#organization-detail/${c.organization_id}" style="color:var(--primary)">${sanitize(c.org_name)}</a></td><td data-label="N. Cert.">${c.cert_number}</td><td data-label="Scadenza">${formatDate(c.expiry_date)}</td></tr>
+            `).join('')}</tbody>
           </table></div></div>
         </div>
       ` : ''}
@@ -641,15 +662,15 @@ async function renderDashboard() {
         <div class="card-header"><h3>I miei audit</h3></div>
         <div class="card-body">
           ${!audits || audits.length === 0 ? '<p class="text-muted">Nessun audit assegnato</p>' : `
-            <div class="table-container"><table>
-              <tr><th>Organizzazione</th><th>Tipo</th><th>Data</th><th>Stato</th><th>Azioni</th></tr>
-              ${audits.map(a => `<tr>
-                <td><a href="#organization-detail/${a.organization_id}" style="color:var(--primary)">${sanitize(a.org_name)}</a></td>
-                <td>${translateAuditType(a.audit_type)}</td>
-                <td>${formatDate(a.scheduled_date || a.completed_date)}</td>
-                <td>${badge(a.status)}</td>
-                <td><a href="#audit-checklist/${a.id}" class="btn btn-primary btn-sm">Apri</a></td>
-              </tr>`).join('')}
+            <div class="table-container"><table class="card-table">
+              <thead><tr><th>Organizzazione</th><th>Tipo</th><th>Data</th><th>Stato</th><th>Azioni</th></tr></thead>
+              <tbody>${audits.map(a => `<tr>
+                <td data-label="Organizzazione"><a href="#organization-detail/${a.organization_id}" style="color:var(--primary)">${sanitize(a.org_name)}</a></td>
+                <td data-label="Tipo">${translateAuditType(a.audit_type)}</td>
+                <td data-label="Data">${formatDate(a.scheduled_date || a.completed_date)}</td>
+                <td data-label="Stato">${badge(a.status)}</td>
+                <td data-label=""><a href="#audit-checklist/${a.id}" class="btn btn-primary btn-sm">Apri</a></td>
+              </tr>`).join('')}</tbody>
             </table></div>
           `}
         </div>
@@ -667,12 +688,12 @@ async function renderDashboard() {
       ${certs && certs.length > 0 ? `
         <div class="card mb-2">
           <div class="card-header"><h3>Le mie certificazioni</h3></div>
-          <div class="card-body"><div class="table-container"><table>
-            <tr><th>N. Certificato</th><th>Stato</th><th>Rilascio</th><th>Scadenza</th></tr>
-            ${certs.map(c => `<tr>
-              <td>${c.cert_number || '—'}</td><td>${badge(c.status)}</td>
-              <td>${formatDate(c.issue_date)}</td><td>${formatDate(c.expiry_date)}</td>
-            </tr>`).join('')}
+          <div class="card-body"><div class="table-container"><table class="card-table">
+            <thead><tr><th>N. Certificato</th><th>Stato</th><th>Rilascio</th><th>Scadenza</th></tr></thead>
+            <tbody>${certs.map(c => `<tr>
+              <td data-label="N. Cert.">${c.cert_number || '—'}</td><td data-label="Stato">${badge(c.status)}</td>
+              <td data-label="Rilascio">${formatDate(c.issue_date)}</td><td data-label="Scadenza">${formatDate(c.expiry_date)}</td>
+            </tr>`).join('')}</tbody>
           </table></div></div>
         </div>
       ` : `
@@ -702,13 +723,13 @@ async function renderOrganizations() {
     tableHtml = `<div class="empty-state"><div class="icon">🏠</div><h3>Nessuna organizzazione</h3>
       <p>Crea la tua organizzazione per iniziare</p></div>`;
   } else {
-    tableHtml = `<div class="table-container"><table>
-      <tr><th>Nome</th><th>Forma giuridica</th><th>Città</th><th>Stato</th><th>Azioni</th></tr>
-      ${orgs.map(o => `<tr>
-        <td><strong><a href="#organization-detail/${o.id}" style="color:var(--primary)">${sanitize(o.name)}</a></strong></td>
-        <td>${LEGAL_FORMS[o.legal_form] || o.legal_form}</td>
-        <td>${sanitize(o.city)} (${o.province})</td>
-        <td>${state.user.role === 'admin' ? `
+    tableHtml = `<div class="table-container"><table class="card-table">
+      <thead><tr><th>Nome</th><th>Forma giuridica</th><th>Città</th><th>Stato</th><th>Azioni</th></tr></thead>
+      <tbody>${orgs.map(o => `<tr>
+        <td data-label="Nome"><strong><a href="#organization-detail/${o.id}" style="color:var(--primary)">${sanitize(o.name)}</a></strong></td>
+        <td data-label="Forma">${LEGAL_FORMS[o.legal_form] || o.legal_form}</td>
+        <td data-label="Città">${sanitize(o.city)} (${o.province})</td>
+        <td data-label="Stato">${state.user.role === 'admin' ? `
           <select onchange="changeOrgStatus('${o.id}', this.value)" style="padding:4px 8px;border-radius:6px;border:1px solid #ddd;font-size:13px">
             <option value="pending" ${o.status==='pending'?'selected':''}>⏳ In attesa</option>
             <option value="active" ${o.status==='active'?'selected':''}>✅ Attiva</option>
@@ -716,8 +737,8 @@ async function renderOrganizations() {
             <option value="revoked" ${o.status==='revoked'?'selected':''}>❌ Revocata</option>
           </select>
         ` : badge(o.status)}</td>
-        <td><button class="btn btn-secondary btn-sm" onclick="navigate('organization-edit','${o.id}')">✏️</button></td>
-      </tr>`).join('')}
+        <td data-label=""><button class="btn btn-secondary btn-sm" onclick="navigate('organization-edit','${o.id}')">✏️</button></td>
+      </tr>`).join('')}</tbody>
     </table></div>`;
   }
 
@@ -864,16 +885,16 @@ async function renderCertifications() {
     </div>
   ` : `
     ${actions ? `<div class="mb-2">${actions}</div>` : ''}
-    <div class="table-container"><table>
-      <tr><th>Organizzazione</th><th>N. Certificato</th><th>Stato</th><th>Data domanda</th><th>Scadenza</th><th>Azioni</th></tr>
-      ${certs.map(c => `<tr>
-        <td><a href="#organization-detail/${c.organization_id}" style="color:var(--primary)">${sanitize(c.org_name)}</a></td>
-        <td>${c.cert_number || '—'}</td>
-        <td>${badge(c.status)}</td>
-        <td>${formatDate(c.application_date)}</td>
-        <td>${formatDate(c.expiry_date)}</td>
-        <td><button class="btn btn-secondary btn-sm" onclick="navigate('certification-detail','${c.id}')">Dettagli</button></td>
-      </tr>`).join('')}
+    <div class="table-container"><table class="card-table">
+      <thead><tr><th>Organizzazione</th><th>N. Certificato</th><th>Stato</th><th>Data domanda</th><th>Scadenza</th><th>Azioni</th></tr></thead>
+      <tbody>${certs.map(c => `<tr>
+        <td data-label="Organizzazione"><a href="#organization-detail/${c.organization_id}" style="color:var(--primary)">${sanitize(c.org_name)}</a></td>
+        <td data-label="N. Cert.">${c.cert_number || '—'}</td>
+        <td data-label="Stato">${badge(c.status)}</td>
+        <td data-label="Domanda">${formatDate(c.application_date)}</td>
+        <td data-label="Scadenza">${formatDate(c.expiry_date)}</td>
+        <td data-label=""><button class="btn btn-secondary btn-sm" onclick="navigate('certification-detail','${c.id}')">Dettagli</button></td>
+      </tr>`).join('')}</tbody>
     </table></div>
   `;
 }
@@ -895,7 +916,6 @@ async function renderCertificationDetail(id) {
     const nextStatuses = {
       submitted: [['doc_review', 'Inizia revisione documenti']],
       doc_review: [['doc_approved', 'Approva documenti'], ['doc_rejected', 'Respingi documenti']],
-      doc_approved: [['audit_scheduled', 'Pianifica audit']],
       audit_completed: [['approved', 'Approva'], ['rejected', 'Respingi']],
       approved: [['issued', 'Rilascia certificato']]
     };
@@ -907,10 +927,10 @@ async function renderCertificationDetail(id) {
     }
   }
 
-  // Pulsante crea audit
+  // Pulsante pianifica audit (unico pulsante — apre modal selezione auditor)
   let auditBtn = '';
   if (canManage && ['doc_approved', 'audit_scheduled'].includes(cert.status)) {
-    auditBtn = `<button class="btn btn-primary mt-2" onclick="createAudit('${id}')">✅ Crea audit</button>`;
+    auditBtn = `<button class="btn btn-primary mt-2" onclick="createAudit('${id}')">📋 Pianifica audit</button>`;
   }
 
   // Pulsante scarica certificato
@@ -967,13 +987,13 @@ async function renderCertificationDetail(id) {
     ${cert.audits && cert.audits.length > 0 ? `
       <div class="card">
         <div class="card-header"><h3>Audit associati</h3></div>
-        <div class="card-body"><div class="table-container"><table>
-          <tr><th>Tipo</th><th>Data</th><th>Stato</th><th>Esito</th><th>Azioni</th></tr>
-          ${cert.audits.map(a => `<tr>
-            <td>${translateAuditType(a.audit_type)}</td><td>${formatDate(a.scheduled_date || a.completed_date)}</td>
-            <td>${badge(a.status)}</td><td>${a.outcome ? translateOutcome(a.outcome) : '—'}</td>
-            <td><a href="#audit-checklist/${a.id}" class="btn btn-primary btn-sm">Apri checklist</a></td>
-          </tr>`).join('')}
+        <div class="card-body"><div class="table-container"><table class="card-table">
+          <thead><tr><th>Tipo</th><th>Data</th><th>Stato</th><th>Esito</th><th>Azioni</th></tr></thead>
+          <tbody>${cert.audits.map(a => `<tr>
+            <td data-label="Tipo">${translateAuditType(a.audit_type)}</td><td data-label="Data">${formatDate(a.scheduled_date || a.completed_date)}</td>
+            <td data-label="Stato">${badge(a.status)}</td><td data-label="Esito">${a.outcome ? translateOutcome(a.outcome) : '—'}</td>
+            <td data-label=""><a href="#audit-checklist/${a.id}" class="btn btn-primary btn-sm">${state.user.role === 'auditor' && a.status !== 'completed' ? 'Apri checklist' : 'Dettagli'}</a></td>
+          </tr>`).join('')}</tbody>
         </table></div></div>
       </div>
     ` : ''}
@@ -981,6 +1001,14 @@ async function renderCertificationDetail(id) {
 }
 
 async function updateCertStatus(certId, status) {
+  if (status.includes('reject')) {
+    showInputModal('Motivo del rifiuto', 'Inserisci la motivazione per il rifiuto della certificazione.', 'Motivazione...', (notes) => {
+      doUpdateCertStatus(certId, status, notes);
+    });
+  } else {
+    doUpdateCertStatus(certId, status, null);
+  }
+}
 
 async function downloadCertDoc(docId, fileName) {
   try {
@@ -1024,14 +1052,6 @@ function uploadAdditionalDoc(certId) {
     } catch (err) { toast('Errore upload', 'error'); }
   };
   input.click();
-}
-  if (status.includes('reject')) {
-    showInputModal('Motivo del rifiuto', 'Inserisci la motivazione per il rifiuto della certificazione.', 'Motivazione...', (notes) => {
-      doUpdateCertStatus(certId, status, notes);
-    });
-  } else {
-    doUpdateCertStatus(certId, status, null);
-  }
 }
 
 async function doUpdateCertStatus(certId, status, notes) {
@@ -1079,11 +1099,82 @@ function showInputModal(title, message, placeholder, onConfirm) {
 }
 
 async function createAudit(certId) {
-  const result = await api('/audits', {
-    method: 'POST',
-    body: JSON.stringify({ certificationId: certId, auditType: 'initial', auditMode: 'on_site' })
-  });
-  if (result) { toast('Audit creato!', 'success'); navigate('audit-checklist', result.id); }
+  // Carica lista auditor
+  const auditors = await api('/audits/auditors');
+  if (!auditors || auditors.length === 0) { toast('Nessun auditor attivo nel sistema. Crea prima un utente con ruolo Auditor.', 'error'); return; }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-modal" style="max-width:460px;text-align:left">
+      <div style="text-align:center">
+        <div class="confirm-modal-icon">✅</div>
+        <h3 class="confirm-modal-title">Crea e assegna audit</h3>
+        <p class="confirm-modal-text">Seleziona l'auditor e i dettagli dell'audit</p>
+      </div>
+      <div style="margin-bottom:16px">
+        <div class="form-group" style="margin-bottom:12px">
+          <label style="font-weight:600;font-size:13px;color:#333">Auditor *</label>
+          <select id="modal-auditor" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px">
+            <option value="">— Seleziona auditor —</option>
+            ${auditors.map(a => `<option value="${a.id}">${sanitize(a.last_name)} ${sanitize(a.first_name)} (${sanitize(a.email)})</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label style="font-weight:600;font-size:13px;color:#333">Tipo audit</label>
+          <select id="modal-audit-type" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px">
+            <option value="initial">Iniziale</option>
+            <option value="surveillance">Sorveglianza</option>
+            <option value="renewal">Rinnovo</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label style="font-weight:600;font-size:13px;color:#333">Modalità</label>
+          <select id="modal-audit-mode" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px">
+            <option value="on_site">In presenza</option>
+            <option value="remote">Da remoto</option>
+            <option value="mixed">Mista</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label style="font-weight:600;font-size:13px;color:#333">Data prevista</label>
+          <input type="date" id="modal-audit-date" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px">
+        </div>
+      </div>
+      <div class="confirm-modal-actions">
+        <button class="btn btn-secondary" id="modal-cancel">Annulla</button>
+        <button class="btn btn-primary" id="modal-confirm">Crea audit</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+
+  overlay.querySelector('#modal-cancel').onclick = () => {
+    overlay.classList.remove('visible');
+    setTimeout(() => overlay.remove(), 200);
+  };
+  overlay.querySelector('#modal-confirm').onclick = async () => {
+    const auditorId = overlay.querySelector('#modal-auditor').value;
+    const auditType = overlay.querySelector('#modal-audit-type').value;
+    const auditMode = overlay.querySelector('#modal-audit-mode').value;
+    const scheduledDate = overlay.querySelector('#modal-audit-date').value || null;
+
+    if (!auditorId) { toast('Seleziona un auditor', 'error'); return; }
+
+    overlay.remove();
+    const result = await api('/audits', {
+      method: 'POST',
+      body: JSON.stringify({ certificationId: certId, auditorId, auditType, auditMode, scheduledDate })
+    });
+    if (result) { toast('Audit creato e assegnato!', 'success'); navigate('audits'); }
+  };
+  overlay.onclick = (e) => {
+    if (e.target === overlay) {
+      overlay.classList.remove('visible');
+      setTimeout(() => overlay.remove(), 200);
+    }
+  };
 }
 
 async function requestCertification() {
@@ -1186,19 +1277,19 @@ async function renderAudits() {
   $('#page-content').innerHTML = audits.length === 0 ? `
     <div class="empty-state"><div class="icon">✅</div><h3>Nessun audit</h3></div>
   ` : `
-    <div class="table-container"><table>
-      <tr><th>Organizzazione</th><th>Tipo</th><th>Data</th><th>Stato</th><th>Esito</th><th>Azioni</th></tr>
-      ${audits.map(a => `<tr>
-        <td><a href="#organization-detail/${a.organization_id}" style="color:var(--primary)">${sanitize(a.org_name)}</a></td>
-        <td>${translateAuditType(a.audit_type)}</td>
-        <td>${formatDate(a.scheduled_date || a.completed_date)}</td>
-        <td>${badge(a.status)}</td>
-        <td>${a.outcome ? translateOutcome(a.outcome) : '—'}</td>
-        <td>
-          <a href="#audit-checklist/${a.id}" class="btn btn-primary btn-sm">Checklist</a>
+    <div class="table-container"><table class="card-table">
+      <thead><tr><th>Organizzazione</th><th>Tipo</th><th>Data</th><th>Stato</th><th>Esito</th><th>Azioni</th></tr></thead>
+      <tbody>${audits.map(a => `<tr>
+        <td data-label="Organizzazione"><a href="#organization-detail/${a.organization_id}" style="color:var(--primary)">${sanitize(a.org_name)}</a></td>
+        <td data-label="Tipo">${translateAuditType(a.audit_type)}</td>
+        <td data-label="Data">${formatDate(a.scheduled_date || a.completed_date)}</td>
+        <td data-label="Stato">${badge(a.status)}</td>
+        <td data-label="Esito">${a.outcome ? translateOutcome(a.outcome) : '—'}</td>
+        <td data-label="">
+          <a href="#audit-checklist/${a.id}" class="btn btn-primary btn-sm">${state.user.role === 'auditor' && a.status !== 'completed' ? 'Checklist' : 'Dettagli'}</a>
           ${a.status === 'completed' ? `<button class="btn btn-secondary btn-sm" onclick="downloadAuditPdf('${a.id}')">📄 PDF</button>` : ''}
         </td>
-      </tr>`).join('')}
+      </tr>`).join('')}</tbody>
     </table></div>
   `;
 }
@@ -1209,10 +1300,19 @@ async function renderAudits() {
 async function renderAuditChecklist(auditId) {
   renderLayout('Checklist di Audit', '<div class="loading"><div class="spinner"></div><p>Caricamento checklist...</p></div>');
   
-  const audit = await api(`/audits/${auditId}`);
-  if (!audit) return;
+  if (!auditId) {
+    $('#page-content').innerHTML = '<div class="alert alert-danger">ID audit mancante. <button class="btn btn-secondary btn-sm" onclick="navigate(\'audits\')">← Torna agli audit</button></div>';
+    return;
+  }
 
-  const isEditable = audit.status !== 'completed' && audit.status !== 'cancelled';
+  const audit = await api(`/audits/${auditId}`);
+  if (!audit) {
+    $('#page-content').innerHTML = '<div class="alert alert-danger">Errore nel caricamento dell\'audit. L\'audit potrebbe non esistere o non essere accessibile. <button class="btn btn-secondary btn-sm mt-1" onclick="navigate(\'audits\')">← Torna agli audit</button></div>';
+    return;
+  }
+
+  const isAuditor = state.user.role === 'auditor';
+  const isEditable = isAuditor && audit.status !== 'completed' && audit.status !== 'cancelled';
   const evaluations = audit.evaluations || [];
 
   // Raggruppa per area
@@ -1226,8 +1326,9 @@ async function renderAuditChecklist(auditId) {
 
   let html = `
     <div style="margin-bottom:12px">
-      <button class="btn btn-secondary btn-sm" onclick="navigate('certification-detail','${audit.certification_id}')">← Torna al dettaglio certificazione</button>
+      <button class="btn btn-secondary btn-sm" onclick="navigate('audits')">← Torna alla lista audit</button>
     </div>
+    ${!isAuditor ? '<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:14px;color:#856404">🔒 Modalità sola lettura — Solo l\'auditor assegnato può compilare la checklist</div>' : ''}
     <div class="card mb-2">
       <div class="card-body flex-between">
         <div>
@@ -1250,8 +1351,20 @@ async function renderAuditChecklist(auditId) {
     area.requirements.forEach(req => {
       const reqId = req.requirement_id;
       const currentEval = req.evaluation || '';
-      const checkedEvidences = req.evidences_checked ? (typeof req.evidences_checked === 'string' ? JSON.parse(req.evidences_checked) : req.evidences_checked) : [];
-      const availableEvidences = req.acceptable_evidences ? (typeof req.acceptable_evidences === 'string' ? JSON.parse(req.acceptable_evidences) : req.acceptable_evidences) : [];
+      const checkedEvidences = (() => {
+        try {
+          if (!req.evidences_checked) return [];
+          if (typeof req.evidences_checked === 'string') return JSON.parse(req.evidences_checked);
+          return req.evidences_checked;
+        } catch(e) { return []; }
+      })();
+      const availableEvidences = (() => {
+        try {
+          if (!req.acceptable_evidences) return [];
+          if (typeof req.acceptable_evidences === 'string') return JSON.parse(req.acceptable_evidences);
+          return req.acceptable_evidences;
+        } catch(e) { return []; }
+      })();
 
       html += `
         <div class="audit-requirement" data-req-id="${reqId}">
@@ -1457,20 +1570,20 @@ async function renderBeneficiaries() {
   $('#page-content').innerHTML = `
     ${canAdd ? '<button class="btn btn-primary mb-2" onclick="showAddBeneficiaryModal()">+ Nuovo beneficiario</button>' : ''}
     ${bens.length === 0 ? '<div class="empty-state"><div class="icon">👥</div><h3>Nessun beneficiario registrato</h3></div>' : `
-      <div class="table-container"><table>
-        <tr><th>Codice</th><th>Organizzazione</th><th>Tipologia</th><th>Stato</th><th>Ente inviante</th><th>Attività</th>${canAdd ? '<th>Azioni</th>' : ''}</tr>
-        ${bens.map(b => `<tr>
-          <td><strong>${sanitize(b.code)}</strong></td>
-          <td><a href="#organization-detail/${b.organization_id}" style="color:var(--primary)">${sanitize(b.org_name)}</a></td>
-          <td>${TARGET_LABELS[b.target_type] || b.target_type || '—'}</td>
-          <td>${badge(b.status)}</td>
-          <td>${sanitize(b.referring_entity) || '—'}</td>
-          <td>${b.activity_count || 0}</td>
-          ${canAdd ? `<td><div style="display:flex;gap:4px;flex-wrap:nowrap">
+      <div class="table-container"><table class="card-table">
+        <thead><tr><th>Codice</th><th>Organizzazione</th><th>Tipologia</th><th>Stato</th><th>Ente inviante</th><th>Attività</th>${canAdd ? '<th>Azioni</th>' : ''}</tr></thead>
+        <tbody>${bens.map(b => `<tr>
+          <td data-label="Codice"><strong>${sanitize(b.code)}</strong></td>
+          <td data-label="Organizzazione"><a href="#organization-detail/${b.organization_id}" style="color:var(--primary)">${sanitize(b.org_name)}</a></td>
+          <td data-label="Tipologia">${TARGET_LABELS[b.target_type] || b.target_type || '—'}</td>
+          <td data-label="Stato">${badge(b.status)}</td>
+          <td data-label="Ente inv.">${sanitize(b.referring_entity) || '—'}</td>
+          <td data-label="Attività">${b.activity_count || 0}</td>
+          ${canAdd ? `<td data-label=""><div style="display:flex;gap:4px;flex-wrap:nowrap">
             <button class="btn btn-secondary btn-sm" onclick="showEditBeneficiaryModal('${b.id}')">✏️</button>
             <button class="btn btn-danger btn-sm" onclick="deleteBeneficiary('${b.id}','${sanitize(b.code)}')">🗑️</button>
           </div></td>` : ''}
-        </tr>`).join('')}
+        </tr>`).join('')}</tbody>
       </table></div>
     `}
     <div id="modal-container"></div>
@@ -1530,20 +1643,20 @@ async function renderActivities() {
   $('#page-content').innerHTML = `
     ${canAdd ? '<button class="btn btn-primary mb-2" onclick="showAddActivityModal()">+ Registra attività</button>' : ''}
     ${activities.length === 0 ? '<div class="empty-state"><div class="icon">📋</div><h3>Nessuna attività registrata</h3></div>' : `
-      <div class="table-container"><table>
-        <tr><th>Data</th><th>Organizzazione</th><th>Beneficiario</th><th>Servizio</th><th>Durata</th><th>Descrizione</th>${canAdd ? '<th>Azioni</th>' : ''}</tr>
-        ${activities.map(a => `<tr>
-          <td>${formatDate(a.activity_date)}</td>
-          <td><a href="#organization-detail/${a.organization_id}" style="color:var(--primary)">${sanitize(a.org_name)}</a></td>
-          <td>${sanitize(a.beneficiary_code) || 'Gruppo'}</td>
-          <td>${SERVICE_LABELS[a.service_type] || a.service_type || '—'}</td>
-          <td>${a.duration_minutes ? (a.duration_minutes / 60).toFixed(1).replace('.0','') + ' h' : '—'}</td>
-          <td>${sanitize(a.description)}</td>
-          ${canAdd ? `<td><div style="display:flex;gap:4px;flex-wrap:nowrap">
+      <div class="table-container"><table class="card-table">
+        <thead><tr><th>Data</th><th>Organizzazione</th><th>Beneficiario</th><th>Servizio</th><th>Durata</th><th>Descrizione</th>${canAdd ? '<th>Azioni</th>' : ''}</tr></thead>
+        <tbody>${activities.map(a => `<tr>
+          <td data-label="Data">${formatDate(a.activity_date)}</td>
+          <td data-label="Organizzazione"><a href="#organization-detail/${a.organization_id}" style="color:var(--primary)">${sanitize(a.org_name)}</a></td>
+          <td data-label="Beneficiario">${sanitize(a.beneficiary_code) || 'Gruppo'}</td>
+          <td data-label="Servizio">${SERVICE_LABELS[a.service_type] || a.service_type || '—'}</td>
+          <td data-label="Durata">${a.duration_minutes ? (a.duration_minutes / 60).toFixed(1).replace('.0','') + ' h' : '—'}</td>
+          <td data-label="Descrizione">${sanitize(a.description)}</td>
+          ${canAdd ? `<td data-label=""><div style="display:flex;gap:4px;flex-wrap:nowrap">
             <button class="btn btn-secondary btn-sm" onclick="showEditActivityModal('${a.id}','${a.activity_date||''}','${a.service_type||''}',${a.duration_minutes||'null'},'${sanitize(a.description).replace(/'/g,"\\'")}','${sanitize(a.notes||'').replace(/'/g,"\\'")}','${a.organization_id||''}')">✏️</button>
             <button class="btn btn-danger btn-sm" onclick="deleteActivity('${a.id}')">🗑️</button>
           </div></td>` : ''}
-        </tr>`).join('')}
+        </tr>`).join('')}</tbody>
       </table></div>
     `}
     <div id="modal-container"></div>
@@ -1757,16 +1870,15 @@ async function renderOrganizationDetail(id) {
       <div class="card-header"><h3>👥 Beneficiari (${bens.length})</h3></div>
       <div class="card-body">
         ${bens.length === 0 ? '<p class="text-muted">Nessun beneficiario registrato</p>' : `
-          <div class="table-container"><table>
-            <colgroup><col style="width:15%"><col style="width:22%"><col style="width:20%"><col style="width:18%"><col style="width:25%"></colgroup>
-            <tr><th>Codice</th><th>Tipologia</th><th>Stato</th><th>Ente inviante</th><th>Attività</th></tr>
-            ${bens.map(b => `<tr>
-              <td><strong>${sanitize(b.code)}</strong></td>
-              <td>${TARGET_LABELS[b.target_type] || b.target_type || '—'}</td>
-              <td>${badge(b.status)}</td>
-              <td>${sanitize(b.referring_entity) || '—'}</td>
-              <td>${b.activity_count || 0}</td>
-            </tr>`).join('')}
+          <div class="table-container"><table class="card-table">
+            <thead><tr><th>Codice</th><th>Tipologia</th><th>Stato</th><th>Ente inviante</th><th>Attività</th></tr></thead>
+            <tbody>${bens.map(b => `<tr>
+              <td data-label="Codice"><strong>${sanitize(b.code)}</strong></td>
+              <td data-label="Tipologia">${TARGET_LABELS[b.target_type] || b.target_type || '—'}</td>
+              <td data-label="Stato">${badge(b.status)}</td>
+              <td data-label="Ente inv.">${sanitize(b.referring_entity) || '—'}</td>
+              <td data-label="Attività">${b.activity_count || 0}</td>
+            </tr>`).join('')}</tbody>
           </table></div>
         `}
       </div>
@@ -1776,16 +1888,15 @@ async function renderOrganizationDetail(id) {
       <div class="card-header"><h3>📋 Attività recenti (${activities.length})</h3></div>
       <div class="card-body">
         ${activities.length === 0 ? '<p class="text-muted">Nessuna attività registrata</p>' : `
-          <div class="table-container"><table>
-            <colgroup><col style="width:15%"><col style="width:22%"><col style="width:20%"><col style="width:18%"><col style="width:25%"></colgroup>
-            <tr><th>Data</th><th>Beneficiario</th><th>Servizio</th><th>Durata</th><th>Descrizione</th></tr>
-            ${activities.slice(0, 20).map(a => `<tr>
-              <td>${formatDate(a.activity_date)}</td>
-              <td>${sanitize(a.beneficiary_code) || 'Gruppo'}</td>
-              <td>${SERVICE_LABELS[a.service_type] || a.service_type || '—'}</td>
-              <td>${a.duration_minutes ? (a.duration_minutes / 60).toFixed(1).replace('.0','') + ' h' : '—'}</td>
-              <td>${sanitize(a.description)}</td>
-            </tr>`).join('')}
+          <div class="table-container"><table class="card-table">
+            <thead><tr><th>Data</th><th>Beneficiario</th><th>Servizio</th><th>Durata</th><th>Descrizione</th></tr></thead>
+            <tbody>${activities.slice(0, 20).map(a => `<tr>
+              <td data-label="Data">${formatDate(a.activity_date)}</td>
+              <td data-label="Beneficiario">${sanitize(a.beneficiary_code) || 'Gruppo'}</td>
+              <td data-label="Servizio">${SERVICE_LABELS[a.service_type] || a.service_type || '—'}</td>
+              <td data-label="Durata">${a.duration_minutes ? (a.duration_minutes / 60).toFixed(1).replace('.0','') + ' h' : '—'}</td>
+              <td data-label="Descrizione">${sanitize(a.description)}</td>
+            </tr>`).join('')}</tbody>
           </table></div>
           ${activities.length > 20 ? `<p class="text-sm text-muted mt-1">Mostrate le ultime 20 su ${activities.length} totali</p>` : ''}
         `}
@@ -2086,25 +2197,25 @@ async function renderAdminUsers() {
 
   $('#page-content').innerHTML = `
     <div class="mb-2"><button class="btn btn-primary" onclick="showCreateUserModal()">+ Nuovo utente</button></div>
-    <div class="table-container"><table>
-      <tr><th>Nome</th><th>Email</th><th>Ruolo</th><th>Organizzazione</th><th>Stato</th><th>Ultimo accesso</th><th>Azioni</th></tr>
-      ${users.map(u => `<tr>
-        <td>${sanitize(u.first_name)} ${sanitize(u.last_name)}</td>
-        <td>${u.email}</td>
-        <td><span class="badge badge-info">${ROLE_LABELS[u.role] || u.role}</span></td>
-        <td>${u.organization_name ? sanitize(u.organization_name) : '<span style="color:#999">—</span>'}</td>
-        <td>
+    <div class="table-container"><table class="card-table">
+      <thead><tr><th>Nome</th><th>Email</th><th>Ruolo</th><th>Organizzazione</th><th>Stato</th><th>Ultimo accesso</th><th>Azioni</th></tr></thead>
+      <tbody>${users.map(u => `<tr>
+        <td data-label="Nome">${sanitize(u.first_name)} ${sanitize(u.last_name)}</td>
+        <td data-label="Email">${u.email}</td>
+        <td data-label="Ruolo"><span class="badge badge-info">${ROLE_LABELS[u.role] || u.role}</span></td>
+        <td data-label="Organizzazione">${u.organization_name ? sanitize(u.organization_name) : '<span style="color:#999">—</span>'}</td>
+        <td data-label="Stato">
           <select onchange="toggleUserActive('${u.id}', this.value==='1' ? 1 : 0)" style="padding:4px 8px;border-radius:6px;border:1px solid #ddd;font-size:13px">
             <option value="1" ${u.is_active ? 'selected' : ''}>✅ Attivo</option>
             <option value="0" ${!u.is_active ? 'selected' : ''}>❌ Disattivato</option>
           </select>
         </td>
-        <td>${formatDate(u.last_login)}</td>
-        <td><div style="display:flex;gap:4px;flex-wrap:nowrap">
+        <td data-label="Ultimo accesso">${formatDate(u.last_login)}</td>
+        <td data-label=""><div style="display:flex;gap:4px;flex-wrap:nowrap">
           <button class="btn btn-secondary btn-sm" onclick="showEditUserModal('${u.id}','${sanitize(u.first_name)}','${sanitize(u.last_name)}','${u.email}','${u.role}','${u.phone||''}',${u.is_active})">✏️</button>
           <button class="btn btn-secondary btn-sm" onclick="showResetPasswordModal('${u.id}','${u.email}')">🔑</button>
         </div></td>
-      </tr>`).join('')}
+      </tr>`).join('')}</tbody>
     </table></div>
   `;
 }
@@ -2137,11 +2248,11 @@ function phoneInputHtml(id, value = '') {
   }
   const inputStyle = 'padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px';
   return `
-    <div style="display:flex;gap:8px">
-      <select id="${id}-prefix" style="width:130px;${inputStyle}">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <select id="${id}-prefix" class="phone-prefix-select" style="min-width:130px;flex:0 0 auto;${inputStyle}">
         ${PHONE_PREFIXES.map(p => `<option value="${p.code}" ${p.code===prefix?'selected':''}>${p.country} (${p.code})</option>`).join('')}
       </select>
-      <input type="tel" id="${id}" value="${number}" placeholder="333 1234567" style="flex:1;${inputStyle}" oninput="this.value=this.value.replace(/[^0-9\\s]/g,'')">
+      <input type="tel" id="${id}" value="${number}" placeholder="333 1234567" style="flex:1;min-width:140px;${inputStyle}" oninput="this.value=this.value.replace(/[^0-9\\s]/g,'')">
     </div>`;
 }
 

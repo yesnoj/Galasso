@@ -187,13 +187,14 @@ const DATA = {
       { name: 'Scarica documenti PDF', type: 'download', detail: 'Scarica i PDF caricati dall\'organizzazione.', steps: ['Vai su Dettaglio certificazione', 'Clicca ⬇️ su ogni documento'] },
       { name: 'Elimina documenti', type: 'delete', detail: 'Rimuovi documenti durante la revisione.', steps: ['Clicca 🗑️ sul documento', 'Conferma eliminazione'] },
       { name: 'Carica documenti', type: 'create', detail: 'Carica PDF aggiuntivi durante la revisione.', steps: ['Clicca 📎 Carica documento', 'Seleziona file PDF (max 10MB)', 'Upload automatico'] },
-      { name: 'Pianifica audit', type: 'create', detail: 'Crea un audit assegnando l\'auditor.', steps: ['Dalla certificazione approvata', 'Clicca "Pianifica audit"', 'Seleziona auditor, tipo, modalità, data', 'Conferma'] },
+      { name: 'Pianifica audit', type: 'create', detail: 'Crea un audit e assegnalo a un auditor. L\'admin NON compila la checklist.', steps: ['Dalla certificazione con documenti approvati', 'Clicca "Pianifica audit"', 'Seleziona auditor, tipo, modalità, data', 'Conferma → l\'auditor troverà l\'audit nel suo pannello'] },
       { name: 'Rilascia certificato', type: 'action', detail: 'Rilascia il certificato finale con numero e scadenza 3 anni.', steps: ['Dopo audit completato positivo', 'Clicca "Rilascia certificato"', 'Inserisci numero certificato', 'Certificato generato con scadenza 3 anni'] },
       { name: 'Scarica Certificato PDF', type: 'download', detail: 'Scarica il certificato ufficiale in PDF.' },
     ]},
     { section: '✅ Audit', actions: [
-      { name: 'Lista audit', type: 'read', detail: 'Tutti gli audit con stato, organizzazione e auditor.' },
-      { name: 'Compila checklist', type: 'update', detail: '10 requisiti in 5 aree: C / PC / NC / NA con note ed evidenze.', steps: ['Apri checklist dall\'audit', 'Per ogni requisito: valutazione + note + evidenze', 'Area 1: Identità e trasparenza (2 req.)', 'Area 2: Gestione attività sociali (3 req.)', 'Area 3: Sicurezza e tutela (2 req.)', 'Area 4: Competenze e organizzazione (2 req.)', 'Area 5: Impegno alla qualità (1 req.)', 'Salva valutazioni', 'Completa audit → esito automatico'] },
+      { name: 'Lista audit', type: 'read', detail: 'Tutti gli audit con stato, organizzazione e auditor assegnato. Nessun badge notifica (non azionabile dall\'admin).' },
+      { name: 'Crea e assegna audit', type: 'create', detail: 'Crea un audit e assegnalo a un auditor. L\'admin NON compila la checklist.', steps: ['Dalla certificazione con documenti approvati', 'Clicca "Pianifica audit"', 'Seleziona auditor, tipo, modalità, data', 'Conferma → l\'auditor vedrà l\'audit nel suo pannello'] },
+      { name: 'Visualizza checklist', type: 'read', detail: 'Modalità sola lettura. Vedi valutazioni, evidenze e note inserite dall\'auditor. Banner "🔒 Solo l\'auditor assegnato può compilare".', steps: ['Clicca "Dettagli" nella lista audit', 'Vedi tutte le valutazioni (non modificabili)', 'Nessun pulsante Salva o Completa', '"← Torna alla lista audit" per tornare indietro'] },
       { name: 'Scarica Report Audit PDF', type: 'download', detail: 'PDF con checklist completa, valutazioni e azioni correttive.' },
     ]},
     { section: '👥 Beneficiari e 📋 Attività', actions: [
@@ -218,15 +219,21 @@ const DATA = {
       { name: 'Modifica profilo', type: 'update', detail: 'Cambia nome, cognome, telefono.' },
       { name: 'Cambia password', type: 'action', detail: 'Password attuale + nuova + conferma con check real-time.' },
     ]},
+    { section: '🔔 Funzionalità trasversali', actions: [
+      { name: 'Badge notifiche sidebar', type: 'read', detail: 'Badge rossi con contatore sulle voci del menu che richiedono un\'azione dell\'admin. Solo elementi azionabili: nessun badge su Audit (gli audit pianificati sono responsabilità dell\'auditor).', steps: ['🏠 Organizzazioni → organizzazioni in attesa di attivazione', '📜 Certificazioni → domande in attesa di azione (revisione, approvazione, rilascio)', '⭐ Recensioni → recensioni da moderare', '✅ Audit → NESSUN badge (non azionabile dall\'admin, tocca all\'auditor)', 'Il completamento audit è segnalato dal badge Certificazioni (stato "audit completato")', 'Aggiornamento automatico ad ogni cambio pagina'] },
+      { name: 'Nomi organizzazione cliccabili', type: 'navigate', detail: 'In tutte le tabelle, il nome dell\'organizzazione è un link verde che porta al dettaglio.', steps: ['Lista Certificazioni e Dettaglio', 'Lista Beneficiari', 'Registro Attività', 'Lista Audit e Dashboard Auditor', 'Dashboard Admin (certificazioni in scadenza)'] },
+      { name: 'Messaggi errore dettagliati', type: 'read', detail: 'Tutti gli errori mostrano il problema specifico invece di messaggi generici.', steps: ['"Codice fiscale già presente" → C.F. duplicato', '"Partita IVA già presente" → P.IVA duplicata', '"Email già registrata" → email utente esistente', '"Campo obbligatorio mancante" → dettaglio campo'] },
+      { name: 'Versione mobile responsive', type: 'read', detail: 'Layout completamente ottimizzato per smartphone. Tabelle trasformate in card, modal a larghezza piena, dropdown leggibili (16px), bottoni touch-friendly (44px min).', steps: ['Tabelle → card layout con etichette (12 tabelle convertite)', 'Sidebar → overlay con backdrop scuro, auto-close', 'Form → colonna singola, font 16px (no auto-zoom iOS)', 'Select/dropdown → 16px !important, min-height 44px', 'Prefisso telefono → flex-wrap per schermi piccoli', 'Bottoni → min-height 44px (standard Apple touch target)'] },
+    ]},
   ],
 
   auditor: [
     { section: '📊 Dashboard', actions: [
-      { name: 'Dashboard', type: 'read', detail: 'Audit assegnati, completati e prossimi.' },
+      { name: 'Dashboard', type: 'read', detail: 'Audit assegnati con badge rosso se ci sono audit da completare.' },
     ]},
-    { section: '✅ Audit', actions: [
-      { name: 'I miei audit', type: 'read', detail: 'Lista degli audit assegnati con stato e scadenze.' },
-      { name: 'Compila checklist', type: 'update', detail: '10 requisiti, 5 aree. Valutazioni C/PC/NC/NA con note ed evidenze.', steps: ['Apri checklist', 'Valuta ogni requisito', 'Inserisci note ed evidenze', 'Salva progressi', 'Completa audit → esito calcolato'] },
+    { section: '✅ Audit (funzione esclusiva)', actions: [
+      { name: 'I miei audit', type: 'read', detail: 'Lista degli audit assegnati con stato e scadenze. Badge rosso nel menu indica audit da completare.' },
+      { name: 'Compila checklist', type: 'update', detail: 'Funzione ESCLUSIVA dell\'auditor. L\'admin non può compilare. 10 requisiti, 5 aree. Valutazioni C/PC/NC/NA con note ed evidenze.', steps: ['Clicca "Checklist" sull\'audit assegnato', 'Valuta ogni requisito: C / PC / NC / NA', 'Spunta evidenze verificate (checkbox)', 'Inserisci note per ogni requisito', 'Salva progressi con "💾 Salva valutazioni"', 'Completa audit → inserisci nome rappresentante org.', 'Esito calcolato automaticamente', '"← Torna alla lista audit" per tornare indietro'] },
       { name: 'Scarica Report PDF', type: 'download', detail: 'Report completo dell\'audit in PDF.' },
     ]},
     { section: '🗂️ Altro', actions: [
@@ -246,7 +253,7 @@ const DATA = {
     { section: '📜 Certificazioni', actions: [
       { name: 'Richiedi certificazione', type: 'create', detail: 'Invia domanda con upload documenti PDF.', steps: ['Vai su Certificazioni', 'Clicca "Richiedi certificazione"', 'Seleziona file PDF da allegare', 'Verifica lista file', 'Invia domanda'] },
       { name: 'Carica documenti aggiuntivi', type: 'create', detail: 'Aggiungi PDF dalla pagina Dettaglio durante la revisione.' },
-      { name: 'Stato certificazione', type: 'read', detail: 'Segui lo stato della domanda: Inviata → Revisione → Audit → Rilascio.' },
+      { name: 'Stato certificazione', type: 'read', detail: 'Segui lo stato della domanda: Inviata → Revisione → Audit → Rilascio. Badge rosso su 📜 Certificazioni se la domanda è stata respinta o richiede attenzione.' },
       { name: 'Scarica Certificato PDF', type: 'download', detail: 'Scarica il certificato rilasciato.' },
     ]},
     { section: '👥 Beneficiari e 📋 Attività', actions: [
@@ -303,10 +310,10 @@ const CERT_FLOW = [
   { label: 'INVIATA', actor: 'Organizzazione', detail: 'L\'organizzazione invia la domanda con documenti PDF allegati' },
   { label: 'REVISIONE DOC.', actor: 'Admin', detail: 'L\'admin scarica e verifica i documenti allegati' },
   { label: 'DOC. APPROVATI', actor: 'Admin', detail: 'I documenti sono conformi e completi' },
-  { label: 'AUDIT PIANIFICATO', actor: 'Admin', detail: 'L\'admin crea l\'audit e assegna un auditor' },
-  { label: 'AUDIT COMPLETATO', actor: 'Auditor', detail: 'L\'auditor compila la checklist con 10 requisiti' },
-  { label: 'APPROVATA', actor: 'Admin', detail: 'L\'admin approva la certificazione' },
-  { label: 'RILASCIATA', actor: 'Admin', detail: 'Certificato rilasciato con numero e scadenza 3 anni' },
+  { label: 'AUDIT CREATO', actor: 'Admin', detail: 'L\'admin crea l\'audit e lo assegna a un auditor (l\'admin NON compila)' },
+  { label: 'CHECKLIST COMPILATA', actor: 'Auditor', detail: 'L\'auditor (unico abilitato) compila la checklist con i 10 requisiti' },
+  { label: 'APPROVATA', actor: 'Admin', detail: 'L\'admin visualizza l\'esito (sola lettura) e approva la certificazione' },
+  { label: 'RILASCIATA', actor: 'Admin', detail: 'Certificato rilasciato con numero e scadenza 3 anni. Card "Certificazioni per stato" cliccabile in Dashboard' },
 ];
 
 let activeRole = 'admin';
@@ -355,11 +362,11 @@ function render() {
   });
 
   // Add certification flow for admin and org_admin
-  if (['admin', 'org_admin'].includes(activeRole)) {
+  if (['admin', 'org_admin', 'auditor'].includes(activeRole)) {
     html += `
       <div class="section-card">
         <div class="section-header" onclick="toggleSection(999)">
-          <h3>🔄 Flusso Certificazione Completo <span class="badge-count">8 step</span></h3>
+          <h3>🔄 Flusso Certificazione Completo <span class="badge-count">7 step</span></h3>
           <span class="arrow ${openSections.has(999) ? 'open' : ''}">▼</span>
         </div>
         <div class="section-body ${openSections.has(999) ? 'open' : ''}">

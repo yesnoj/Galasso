@@ -160,44 +160,96 @@ console.log('✅ Creazione audit...');
 const insertAudit = db.prepare(`INSERT INTO audits (id, certification_id, auditor_id, audit_type, audit_mode, scheduled_date, completed_date, status, total_conforming, total_partially, total_non_conforming, total_not_applicable, outcome, auditor_notes, org_representative_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
 const audits = [
-  { id: id(), certIdx: 0, auditor: 'auditor1', type: 'initial', sched: date(130), compl: date(125), status: 'completed', c: 9, pc: 1, nc: 0, na: 0, outcome: 'conforming_with_actions', notes: 'Buona organizzazione. Requisito 2.3 parzialmente conforme: politica inclusione da formalizzare.', rep: 'Giuseppe Verdi' },
-  { id: id(), certIdx: 1, auditor: 'auditor2', type: 'initial', sched: date(100), compl: date(95), status: 'completed', c: 10, pc: 0, nc: 0, na: 0, outcome: 'conforming', notes: 'Piena conformità. Struttura molto ben organizzata con documentazione completa.', rep: 'Maria Conti' },
-  { id: id(), certIdx: 2, auditor: 'auditor1', type: 'initial', sched: date(40), compl: date(35), status: 'completed', c: 8, pc: 2, nc: 0, na: 0, outcome: 'conforming_with_actions', notes: 'Requisiti 3.2 e 4.2 parzialmente conformi. Procedure di tutela e organigramma da completare.', rep: 'Paolo Ferrara' },
-  { id: id(), certIdx: 0, auditor: 'auditor2', type: 'surveillance', sched: date(5), compl: null, status: 'planned', c: 0, pc: 0, nc: 0, na: 0, outcome: null, notes: null, rep: null },
-  { id: id(), certIdx: 1, auditor: 'auditor1', type: 'surveillance', sched: date(-30), compl: null, status: 'planned', c: 0, pc: 0, nc: 0, na: 0, outcome: null, notes: null, rep: null },
+  { id: id(), certIdx: 0, auditor: 'auditor1', type: 'initial', mode: 'on_site', sched: date(130), compl: date(125), status: 'completed', c: 9, pc: 1, nc: 0, na: 0, outcome: 'conforming_with_actions', notes: 'Buona organizzazione. Requisito 2.3 parzialmente conforme: politica inclusione da formalizzare.', rep: 'Giuseppe Verdi' },
+  { id: id(), certIdx: 1, auditor: 'auditor2', type: 'initial', mode: 'on_site', sched: date(100), compl: date(95), status: 'completed', c: 10, pc: 0, nc: 0, na: 0, outcome: 'conforming', notes: 'Piena conformità. Struttura molto ben organizzata con documentazione completa.', rep: 'Maria Conti' },
+  { id: id(), certIdx: 2, auditor: 'auditor1', type: 'initial', mode: 'mixed', sched: date(40), compl: date(35), status: 'completed', c: 8, pc: 2, nc: 0, na: 0, outcome: 'conforming_with_actions', notes: 'Requisiti 3.2 e 4.2 parzialmente conformi. Procedure di tutela e organigramma da completare.', rep: 'Paolo Ferrara' },
+  { id: id(), certIdx: 0, auditor: 'auditor2', type: 'surveillance', mode: 'on_site', sched: date(5), compl: null, status: 'planned', c: 0, pc: 0, nc: 0, na: 0, outcome: null, notes: null, rep: null },
+  { id: id(), certIdx: 1, auditor: 'auditor1', type: 'surveillance', mode: 'remote', sched: date(-30), compl: null, status: 'planned', c: 0, pc: 0, nc: 0, na: 0, outcome: null, notes: null, rep: null },
 ];
 
 audits.forEach(a => {
-  insertAudit.run(a.id, certs[a.certIdx].id, users[a.auditor].id, a.type, 'on_site', a.sched, a.compl, a.status, a.c, a.pc, a.nc, a.na, a.outcome, a.notes, a.rep, datetime(130));
+  insertAudit.run(a.id, certs[a.certIdx].id, users[a.auditor].id, a.type, a.mode, a.sched, a.compl, a.status, a.c, a.pc, a.nc, a.na, a.outcome, a.notes, a.rep, datetime(130));
 });
 
-// Audit evaluations for completed audits
+// =====================================================
+// AUDIT EVALUATIONS — evidences_checked come JSON array
+// =====================================================
 console.log('📋 Creazione valutazioni audit...');
 
 const insertEval = db.prepare(`INSERT INTO audit_evaluations (id, audit_id, requirement_id, area_number, requirement_number, evaluation, evidences_checked, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
 
-// Get requirement IDs
-const requirements = db.prepare('SELECT * FROM certification_requirements ORDER BY sort_order').all();
+// Carica i requisiti dal DB con il numero area corretto
+const requirements = db.prepare(`
+  SELECT cr.*, aa.area_number 
+  FROM certification_requirements cr 
+  JOIN audit_areas aa ON cr.area_id = aa.id 
+  ORDER BY cr.sort_order
+`).all();
 
-// Audit 1 (Terra Buona) — 9C + 1PC
-const eval1Map = { '2.3': 'PC' }; // Politica inclusione parziale
+// =====================================================
+// Audit 1: Terra Buona — 9C + 1PC (req 2.3 parziale)
+// =====================================================
+const eval1Config = {
+  '1.1': { ev: 'C', checked: ['Descrizione servizi', 'Documento interno'], note: 'Carta dei servizi completa e aggiornata, disponibile sul sito web' },
+  '1.2': { ev: 'C', checked: ['Nomina formale', 'Organigramma'], note: 'Giuseppe Verdi nominato responsabile con delibera del CdA' },
+  '2.1': { ev: 'C', checked: ['Progetti individuali', 'Convenzioni'], note: 'Presenti progetti individuali per ogni beneficiario e convenzione con CSM Piacenza' },
+  '2.2': { ev: 'C', checked: ['Registro attività', 'Report'], note: 'Registro attività giornaliero su piattaforma digitale, report mensili inviati al CSM' },
+  '2.3': { ev: 'PC', checked: ['Dichiarazione scritta'], note: 'Politica di inclusione presente nella mission aziendale ma non formalizzata in documento ufficiale separato' },
+  '3.1': { ev: 'C', checked: ['Autocertificazione', 'Documentazione sicurezza'], note: 'DVR aggiornato, formazione sicurezza completata per tutti gli operatori' },
+  '3.2': { ev: 'C', checked: ['Procedure', 'Modalità operative'], note: 'Protocolli di supervisione chiari, rapporto operatore/utente adeguato (1:4)' },
+  '4.1': { ev: 'C', checked: ['CV', 'Formazione', 'Esperienza documentata'], note: 'Personale qualificato: 2 educatori, 1 psicologo, 1 agronomo, 3 operatori con formazione specifica' },
+  '4.2': { ev: 'C', checked: ['Organigramma', 'Descrizione ruoli'], note: 'Organigramma completo con mansionario dettagliato per ogni ruolo' },
+  '5.1': { ev: 'C', checked: ['Dichiarazione firmata'], note: 'Dichiarazione firmata dal presidente della cooperativa e dal CdA' },
+};
+
 requirements.forEach(r => {
-  const ev = eval1Map[r.requirement_number] || 'C';
-  const evidences = ev === 'C' ? 'Documentazione verificata, conforme' : 'Documentazione parziale, necessita integrazione';
-  insertEval.run(id(), audits[0].id, r.id, r.area_id.replace('area-', ''), r.requirement_number, ev, evidences, ev === 'PC' ? 'Politica di inclusione presente ma non formalizzata in documento ufficiale' : '');
+  const cfg = eval1Config[r.requirement_number];
+  if (!cfg) return;
+  insertEval.run(id(), audits[0].id, r.id, r.area_number, r.requirement_number, cfg.ev, JSON.stringify(cfg.checked), cfg.note);
 });
 
-// Audit 2 (Il Vigneto) — 10C
+// =====================================================
+// Audit 2: Il Vigneto — 10C (piena conformità)
+// =====================================================
+const eval2Config = {
+  '1.1': { ev: 'C', checked: ['Descrizione servizi', 'Documento interno', 'Materiale informativo'], note: 'Documentazione esemplare: brochure, sito web aggiornato, schede servizio dettagliate' },
+  '1.2': { ev: 'C', checked: ['Nomina formale', 'Organigramma'], note: 'Maria Conti designata con atto formale, ruolo chiaramente definito' },
+  '2.1': { ev: 'C', checked: ['Progetti individuali', 'Convenzioni', 'Accordi con enti'], note: 'Progetti individuali per tutti i beneficiari, convenzioni attive con SerD e AUSL Parma' },
+  '2.2': { ev: 'C', checked: ['Registro attività', 'Report', 'Note di monitoraggio'], note: 'Sistema di monitoraggio strutturato con report settimanali e riunioni equipe mensili' },
+  '2.3': { ev: 'C', checked: ['Dichiarazione scritta', 'Politica interna'], note: 'Carta etica approvata con policy antidiscriminazione e codice di condotta' },
+  '3.1': { ev: 'C', checked: ['Autocertificazione', 'Documentazione sicurezza'], note: 'DVR completo, RSPP esterno, formazione ex art. 37 per tutti, DPI forniti' },
+  '3.2': { ev: 'C', checked: ['Procedure', 'Modalità operative'], note: 'Procedure di emergenza, protocolli di supervisione, assicurazione RC operativa' },
+  '4.1': { ev: 'C', checked: ['CV', 'Formazione', 'Esperienza documentata'], note: 'Equipe multidisciplinare: psicoterapeuta, educatore, agronomo, 2 operatori IAA certificati' },
+  '4.2': { ev: 'C', checked: ['Organigramma', 'Descrizione ruoli'], note: 'Struttura organizzativa ben definita con catena di responsabilità chiara' },
+  '5.1': { ev: 'C', checked: ['Dichiarazione firmata'], note: 'Impegno firmato dal titolare con adesione piena a tutti i requisiti dello standard' },
+};
+
 requirements.forEach(r => {
-  insertEval.run(id(), audits[1].id, r.id, r.area_id.replace('area-', ''), r.requirement_number, 'C', 'Documentazione completa e conforme', '');
+  const cfg = eval2Config[r.requirement_number];
+  if (!cfg) return;
+  insertEval.run(id(), audits[1].id, r.id, r.area_number, r.requirement_number, cfg.ev, JSON.stringify(cfg.checked), cfg.note);
 });
 
-// Audit 3 (Campo Sociale) — 8C + 2PC
-const eval3Map = { '3.2': 'PC', '4.2': 'PC' };
+// =====================================================
+// Audit 3: Campo Sociale — 8C + 2PC (3.2 e 4.2 parziali)
+// =====================================================
+const eval3Config = {
+  '1.1': { ev: 'C', checked: ['Descrizione servizi', 'Materiale informativo'], note: 'Schede servizio disponibili per doposcuola, campus e orti didattici' },
+  '1.2': { ev: 'C', checked: ['Nomina formale', 'Dichiarazione organizzazione'], note: 'Paolo Ferrara responsabile in qualità di presidente, nomina da assemblea soci' },
+  '2.1': { ev: 'C', checked: ['Progetti individuali', 'Accordi con enti', 'Documentazione equivalente'], note: 'Accordi con Servizi Sociali Modena, CPIA e Centro Impiego per invio beneficiari' },
+  '2.2': { ev: 'C', checked: ['Registro attività', 'Note di monitoraggio'], note: 'Registro presenze e attività su foglio condiviso, note di osservazione per ogni minore' },
+  '2.3': { ev: 'C', checked: ['Dichiarazione scritta'], note: 'Statuto associativo contiene esplicito impegno alla non discriminazione e inclusione' },
+  '3.1': { ev: 'C', checked: ['Autocertificazione', 'Documentazione sicurezza'], note: 'Autocertificazione DVR presente, formazione base sicurezza per volontari e operatori' },
+  '3.2': { ev: 'PC', checked: ['Procedure'], note: 'Procedure di tutela esistenti ma non aggiornate alla normativa vigente sui minori. Mancano protocolli scritti per la gestione emergenze con utenti fragili' },
+  '4.1': { ev: 'C', checked: ['CV', 'Formazione'], note: '3 educatori professionali, 2 volontari con formazione specifica, 1 mediatore culturale' },
+  '4.2': { ev: 'PC', checked: ['Organigramma'], note: 'Organigramma presente ma incompleto: mancano descrizioni dettagliate dei ruoli operativi e delle responsabilità dei volontari' },
+  '5.1': { ev: 'C', checked: ['Dichiarazione firmata'], note: 'Impegno firmato dal presidente con delibera del consiglio direttivo' },
+};
+
 requirements.forEach(r => {
-  const ev = eval3Map[r.requirement_number] || 'C';
-  const notes3 = { '3.2': 'Procedure di tutela esistenti ma da aggiornare', '4.2': 'Organigramma incompleto, mancano ruoli operativi' };
-  insertEval.run(id(), audits[2].id, r.id, r.area_id.replace('area-', ''), r.requirement_number, ev, ev === 'C' ? 'Verificato e conforme' : 'Documentazione da integrare', notes3[r.requirement_number] || '');
+  const cfg = eval3Config[r.requirement_number];
+  if (!cfg) return;
+  insertEval.run(id(), audits[2].id, r.id, r.area_number, r.requirement_number, cfg.ev, JSON.stringify(cfg.checked), cfg.note);
 });
 
 console.log('👥 Creazione beneficiari...');
@@ -267,7 +319,6 @@ const activityDescs = {
   ]
 };
 
-// Generate activities for last 60 days
 const svcForOrg = [
   ['coterapia_piante', 'inserimento_lavorativo', 'socio_ricreativa'],
   ['coterapia_animali', 'inserimento_lavorativo', 'formazione'],
@@ -275,11 +326,9 @@ const svcForOrg = [
 ];
 
 for (let dayOffset = 1; dayOffset <= 60; dayOffset++) {
-  // Skip weekends occasionally
   const d = new Date(); d.setDate(d.getDate() - dayOffset);
-  if (d.getDay() === 0) continue; // Skip Sundays
+  if (d.getDay() === 0) continue;
 
-  // Activities for each org (2-3 per working day)
   for (let orgIdx = 0; orgIdx < 3; orgIdx++) {
     const orgBens = beneficiaries.filter(b => b.orgIdx === orgIdx && b.status === 'active');
     if (orgBens.length === 0) continue;
@@ -304,14 +353,12 @@ console.log('⭐ Creazione recensioni...');
 const insertReview = db.prepare(`INSERT INTO reviews (id, organization_id, author_name, author_role, rating, comment, is_published, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
 
 const reviews = [
-  // Published reviews
   { orgIdx: 0, author: 'Silvia Gallo', role: 'Referente CSM', rating: 5, comment: 'Collaborazione eccellente. I pazienti mostrano progressi significativi grazie alle attività in orto. Personale preparato e attento.', pub: 1, days: 30 },
   { orgIdx: 0, author: 'Roberto Fontana', role: 'Assistente sociale', rating: 4, comment: 'Buona organizzazione delle attività. Ambiente accogliente e stimolante. Unica nota: sarebbe utile ampliare gli orari pomeridiani.', pub: 1, days: 25 },
   { orgIdx: 1, author: 'Laura Ferri', role: 'Psicologa SerD', rating: 5, comment: 'La fattoria sociale offre un contesto ideale per la riabilitazione. Le attività con gli animali sono particolarmente efficaci. Consiglio vivamente.', pub: 1, days: 45 },
   { orgIdx: 1, author: 'Massimo Tosi', role: 'Familiare', rating: 4, comment: 'Mio fratello ha trovato grande beneficio dalle attività in vigna. L\'ambiente è sereno e il personale molto competente.', pub: 1, days: 40 },
   { orgIdx: 2, author: 'Angela Ricci', role: 'Insegnante', rating: 5, comment: 'Il doposcuola in fattoria è un\'esperienza straordinaria per i bambini. Imparano il rispetto per la natura divertendosi.', pub: 1, days: 20 },
   { orgIdx: 2, author: 'Karim El Fassi', role: 'Mediatore culturale', rating: 4, comment: 'Le attività di integrazione per le famiglie straniere funzionano molto bene. I bambini si inseriscono facilmente.', pub: 1, days: 15 },
-  // Pending reviews (to test badge notifications)
   { orgIdx: 0, author: 'Giovanna Marino', role: 'Utente pubblico', rating: 5, comment: 'Ho partecipato alla giornata aperta e sono rimasta colpita dalla qualità dei servizi offerti. Un esempio di agricoltura sociale virtuosa.', pub: 0, days: 2 },
   { orgIdx: 1, author: 'Antonio Pellegrini', role: 'Volontario', rating: 4, comment: 'Esperienza molto positiva come volontario. L\'organizzazione è seria e ben strutturata, il rapporto con gli utenti è rispettoso.', pub: 0, days: 1 },
   { orgIdx: 2, author: 'Sara Bianchi', role: 'Genitore', rating: 5, comment: 'Mia figlia frequenta il campus estivo da due anni e ogni volta torna entusiasta. Educatori preparati e attenti.', pub: 0, days: 1 },
@@ -342,10 +389,7 @@ console.log('🔧 Creazione azioni correttive...');
 // ===== CORRECTIVE ACTIONS =====
 const insertCA = db.prepare(`INSERT INTO corrective_actions (id, audit_id, evaluation_id, description, action_required, deadline, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
 
-// For audit 1 (Terra Buona - had 1 PC)
 insertCA.run(id(), audits[0].id, null, 'Politica di inclusione non formalizzata in documento ufficiale', 'Redigere e pubblicare una politica formale di inclusione, non discriminazione e rispetto della dignità', date(-30), 'open', datetime(120));
-
-// For audit 3 (Campo Sociale - had 2 PC)
 insertCA.run(id(), audits[2].id, null, 'Procedure di tutela esistenti ma non aggiornate alla normativa vigente', 'Aggiornare le procedure di tutela e supervisione in conformità alla normativa corrente', date(-15), 'open', datetime(30));
 insertCA.run(id(), audits[2].id, null, 'Organigramma incompleto, mancano descrizioni dei ruoli operativi', 'Completare l\'organigramma con tutti i ruoli e le relative responsabilità', date(-15), 'in_progress', datetime(30));
 

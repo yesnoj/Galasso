@@ -8,6 +8,17 @@ const { getDb } = require('../utils/database');
 const { authenticate, authorize } = require('../middleware/auth');
 const PDFDocument = require('pdfkit');
 
+// GET /api/audits/auditors - Lista auditor disponibili (per assegnazione)
+router.get('/auditors', authenticate, authorize('admin'), (req, res) => {
+  try {
+    const db = getDb();
+    const auditors = db.prepare("SELECT id, first_name, last_name, email FROM users WHERE role = 'auditor' AND is_active = 1 ORDER BY last_name, first_name").all();
+    res.json(auditors);
+  } catch (err) {
+    res.status(500).json({ error: 'Errore nel recupero auditor: ' + err.message });
+  }
+});
+
 // GET /api/audits
 router.get('/', authenticate, authorize('admin', 'auditor'), (req, res) => {
   try {
@@ -89,11 +100,14 @@ router.get('/:id', authenticate, (req, res) => {
 });
 
 // POST /api/audits
-router.post('/', authenticate, authorize('admin', 'auditor'), (req, res) => {
+router.post('/', authenticate, authorize('admin'), (req, res) => {
   try {
-    const { certificationId, auditType, auditMode, scheduledDate } = req.body;
+    const { certificationId, auditType, auditMode, scheduledDate, auditorId } = req.body;
     if (!certificationId || !auditType) {
       return res.status(400).json({ error: 'certificationId e auditType obbligatori' });
+    }
+    if (!auditorId) {
+      return res.status(400).json({ error: 'auditorId obbligatorio — seleziona un auditor' });
     }
 
     const db = getDb();
@@ -102,7 +116,7 @@ router.post('/', authenticate, authorize('admin', 'auditor'), (req, res) => {
     db.prepare(`
       INSERT INTO audits (id, certification_id, auditor_id, audit_type, audit_mode, scheduled_date, status)
       VALUES (?, ?, ?, ?, ?, ?, 'planned')
-    `).run(id, certificationId, req.user.id, auditType, auditMode || 'on_site', scheduledDate || null);
+    `).run(id, certificationId, auditorId, auditType, auditMode || 'on_site', scheduledDate || null);
 
     // Pre-popola le valutazioni
     const requirements = db.prepare('SELECT id, requirement_number FROM certification_requirements ORDER BY sort_order').all();
@@ -126,8 +140,8 @@ router.post('/', authenticate, authorize('admin', 'auditor'), (req, res) => {
   }
 });
 
-// PUT /api/audits/:id/evaluations - Salva valutazioni
-router.put('/:id/evaluations', authenticate, authorize('admin', 'auditor'), (req, res) => {
+// PUT /api/audits/:id/evaluations - Salva valutazioni (solo auditor)
+router.put('/:id/evaluations', authenticate, authorize('auditor'), (req, res) => {
   try {
     const { evaluations } = req.body;
     if (!evaluations || !Array.isArray(evaluations)) {
@@ -177,8 +191,8 @@ router.put('/:id/evaluations', authenticate, authorize('admin', 'auditor'), (req
   }
 });
 
-// PUT /api/audits/:id/complete - Completa audit
-router.put('/:id/complete', authenticate, authorize('admin', 'auditor'), (req, res) => {
+// PUT /api/audits/:id/complete - Completa audit (solo auditor)
+router.put('/:id/complete', authenticate, authorize('auditor'), (req, res) => {
   try {
     const { auditorNotes, orgRepresentativeName, correctiveActions } = req.body;
     const db = getDb();

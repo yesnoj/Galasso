@@ -185,15 +185,137 @@ tr:hover td { background: rgba(45,90,39,0.03); }
 
 /* Responsive */
 @media (max-width: 768px) {
-  .sidebar { transform: translateX(-100%); }
-  .sidebar.open { transform: translateX(0); }
+  /* Sidebar: overlay mode */
+  .sidebar { transform: translateX(-100%); width: 280px; }
+  .sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,0.3); }
   .main-content { margin-left: 0; }
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
-  .form-row, .form-row-3 { grid-template-columns: 1fr; }
-  .org-grid { grid-template-columns: 1fr; }
-  .page-body { padding: 15px; }
-  .eval-options { flex-wrap: wrap; }
-  .mobile-menu-btn { display: block !important; }
+
+  /* Sidebar overlay backdrop */
+  .sidebar-backdrop {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4); z-index: 99;
+    display: none; -webkit-tap-highlight-color: transparent;
+  }
+  .sidebar-backdrop.visible { display: block; }
+
+  /* Header compact */
+  .page-header { padding: 12px 16px; }
+  .page-header h2 { font-size: 16px; }
+  .page-header .btn-sm { padding: 6px 10px; font-size: 11px; }
+
+  /* Hamburger visible */
+  .mobile-menu-btn { display: block !important; font-size: 22px; padding: 4px 8px; }
+
+  /* Page body */
+  .page-body { padding: 16px 12px; }
+
+  /* Stats grid */
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat-card { padding: 14px; }
+  .stat-card .stat-value { font-size: 24px; }
+  .stat-card .stat-label { font-size: 11px; }
+  .stat-card .stat-icon { font-size: 18px; }
+
+  /* Forms single column */
+  .form-row, .form-row-3 { grid-template-columns: 1fr !important; gap: 8px; }
+  .form-group input, .form-group select, .form-group textarea { font-size: 16px !important; padding: 12px !important; }
+
+  /* ALL selects and options on mobile — override inline styles */
+  select { font-size: 16px !important; padding: 10px 12px !important; min-height: 44px !important; border-radius: 8px !important; }
+  option { font-size: 16px !important; padding: 10px 8px !important; }
+  .confirm-modal select, .modal select, .modal-body select { font-size: 16px !important; padding: 10px 12px !important; min-height: 44px !important; width: 100% !important; }
+  .confirm-modal input, .modal-body input, .confirm-modal textarea { font-size: 16px !important; padding: 10px 12px !important; min-height: 44px !important; }
+  .confirm-modal label, .modal-body label { font-size: 14px !important; }
+
+  /* Buttons touch-friendly */
+  .btn { padding: 12px 18px; font-size: 14px; min-height: 44px; }
+  .btn-sm { padding: 8px 14px; font-size: 13px; min-height: 38px; }
+  .btn-group { flex-wrap: wrap; }
+
+  /* Tables: horizontal scroll with hint */
+  .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -12px; padding: 0 12px; }
+  table { min-width: 600px; }
+  th, td { padding: 10px 12px; font-size: 13px; white-space: nowrap; }
+
+  /* Cards */
+  .card-header { padding: 12px 16px; }
+  .card-header h3 { font-size: 14px; }
+  .card-body { padding: 16px; }
+
+  /* Registry org grid */
+  .org-grid { grid-template-columns: 1fr; gap: 12px; }
+
+  /* Audit checklist */
+  .eval-options { flex-wrap: wrap; gap: 6px; }
+  .eval-option { padding: 10px 12px; font-size: 12px; flex: 1; min-width: calc(50% - 4px); text-align: center; justify-content: center; }
+  .audit-requirement { padding: 12px; }
+  .audit-requirement h4 { font-size: 13px; }
+  .audit-area h3 { font-size: 14px; padding: 10px 12px; }
+  .evidence-checks { gap: 6px; }
+
+  /* Modal */
+  .confirm-modal { width: 95% !important; max-width: none !important; padding: 24px 20px; }
+  .confirm-modal-actions { flex-direction: column; }
+  .confirm-modal-actions .btn { min-width: auto; width: 100%; }
+  .modal { width: 95% !important; max-width: none !important; }
+  .modal-body { padding: 16px; }
+  .modal-body .form-row { grid-template-columns: 1fr !important; }
+
+  /* Login */
+  .login-card { padding: 24px 20px; margin: 16px; }
+  .login-card h1 { font-size: 20px; }
+
+  /* Toasts */
+  .toast-container { top: 10px; right: 10px; left: 10px; }
+  .toast { min-width: auto; font-size: 13px; padding: 10px 14px; }
+
+  /* Empty state */
+  .empty-state { padding: 40px 16px; }
+
+  /* Flex utilities */
+  .flex-between { flex-wrap: wrap; gap: 8px; }
+
+  /* Sidebar user */
+  .sidebar-user { position: relative; }
+
+  /* Tabs */
+  .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tab { white-space: nowrap; padding: 10px 14px; font-size: 13px; }
+}
+
+/* Extra small screens */
+@media (max-width: 400px) {
+  .stats-grid { grid-template-columns: 1fr; }
+  .stat-card { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; }
+  .stat-card .stat-value { font-size: 22px; }
+  .page-header h2 { font-size: 14px; }
+  .eval-option { min-width: 100%; }
+}
+
+/* ===== RESPONSIVE CARD TABLES (mobile) ===== */
+@media (max-width: 768px) {
+  .card-table thead { display: none; }
+  .card-table tr {
+    display: block; margin-bottom: 12px; background: white;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06); padding: 12px;
+  }
+  .card-table td {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0; border-bottom: 1px solid #f0f0f0;
+    font-size: 13px; white-space: normal;
+  }
+  .card-table td:last-child { border-bottom: none; }
+  .card-table td::before {
+    content: attr(data-label);
+    font-weight: 600; font-size: 12px; color: var(--text-light);
+    text-transform: uppercase; letter-spacing: 0.3px;
+    min-width: 100px; flex-shrink: 0; margin-right: 8px;
+  }
+  .card-table td:first-child { font-weight: 600; }
+  .card-table td .btn { padding: 6px 10px; font-size: 12px; min-height: 32px; }
+  .card-table td select { font-size: 14px !important; padding: 8px 10px !important; min-height: 38px !important; }
+  .card-table { min-width: auto; }
 }
 
 .mobile-menu-btn { display: none; background: none; border: none; font-size: 24px; cursor: pointer; padding: 5px; }

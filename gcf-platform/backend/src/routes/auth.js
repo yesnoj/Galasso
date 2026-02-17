@@ -215,8 +215,8 @@ router.get('/badges', authenticate, (req, res) => {
       badges.certifications = db.prepare("SELECT COUNT(*) as n FROM certifications WHERE status IN ('submitted','doc_review','doc_approved','audit_completed','approved')").get().n;
       // Organizzazioni in attesa di attivazione
       badges.organizations = db.prepare("SELECT COUNT(*) as n FROM organizations WHERE status = 'pending'").get().n;
-      // Audit pianificati o in corso
-      badges.audits = db.prepare("SELECT COUNT(*) as n FROM audits WHERE status IN ('planned','in_progress')").get().n;
+      // Audit: nessun badge per admin — gli audit pianificati/in corso non richiedono azione,
+      // il completamento è già segnalato dal badge certificazioni (stato audit_completed)
     } else if (req.user.role === 'auditor') {
       // Audit assegnati da completare
       badges.audits = db.prepare("SELECT COUNT(*) as n FROM audits WHERE auditor_id = ? AND status IN ('planned','in_progress')").get(req.user.id).n;
