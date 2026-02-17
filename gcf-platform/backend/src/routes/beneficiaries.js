@@ -153,6 +153,34 @@ router.get('/', authenticate, (req, res) => {
   }
 });
 
+// GET /api/beneficiaries/:id - Dettaglio beneficiario con attività
+router.get('/:id', authenticate, (req, res) => {
+  try {
+    const db = getDb();
+    const ben = db.prepare(`
+      SELECT b.*, o.name as org_name
+      FROM beneficiaries b
+      JOIN organizations o ON b.organization_id = o.id
+      WHERE b.id = ?
+    `).get(req.params.id);
+    if (!ben) return res.status(404).json({ error: 'Beneficiario non trovato' });
+
+    const activities = db.prepare(`
+      SELECT al.* FROM activity_logs al
+      WHERE al.beneficiary_id = ?
+      ORDER BY al.activity_date DESC
+    `).all(req.params.id);
+
+    const projects = db.prepare(`
+      SELECT * FROM individual_projects WHERE beneficiary_id = ? ORDER BY created_at DESC
+    `).all(req.params.id);
+
+    res.json({ ...ben, activities, projects });
+  } catch (err) {
+    res.status(500).json({ error: 'Errore recupero beneficiario' });
+  }
+});
+
 // POST /api/beneficiaries
 router.post('/', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
   try {

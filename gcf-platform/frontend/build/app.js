@@ -1573,7 +1573,7 @@ async function renderBeneficiaries() {
       <div class="table-container"><table class="card-table">
         <thead><tr><th>Codice</th><th>Organizzazione</th><th>Tipologia</th><th>Stato</th><th>Ente inviante</th><th>Attività</th>${canAdd ? '<th>Azioni</th>' : ''}</tr></thead>
         <tbody>${bens.map(b => `<tr>
-          <td data-label="Codice"><strong>${sanitize(b.code)}</strong></td>
+          <td data-label="Codice"><a href="#" onclick="event.preventDefault();showBeneficiaryDetail('${b.id}')" style="color:var(--primary);font-weight:600">${sanitize(b.code)}</a></td>
           <td data-label="Organizzazione"><a href="#organization-detail/${b.organization_id}" style="color:var(--primary)">${sanitize(b.org_name)}</a></td>
           <td data-label="Tipologia">${TARGET_LABELS[b.target_type] || b.target_type || '—'}</td>
           <td data-label="Stato">${badge(b.status)}</td>
@@ -1646,6 +1646,62 @@ function showAddBeneficiaryModal() {
   }
 }
 
+async function showBeneficiaryDetail(benId) {
+  const ben = await api(`/beneficiaries/${benId}`);
+  if (!ben) return;
+
+  const totalHours = ben.activities.reduce((sum, a) => sum + (a.duration_minutes || 0), 0) / 60;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.onclick = (e) => { if(e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:700px">
+      <div class="modal-header">
+        <h3>👤 Beneficiario: ${sanitize(ben.code)}</h3>
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-bottom:16px;font-size:14px">
+          <div><strong>Organizzazione:</strong> ${sanitize(ben.org_name)}</div>
+          <div><strong>Tipologia:</strong> ${TARGET_LABELS[ben.target_type] || ben.target_type || '—'}</div>
+          <div><strong>Stato:</strong> ${badge(ben.status)}</div>
+          <div><strong>Ente inviante:</strong> ${sanitize(ben.referring_entity) || '—'}</div>
+          <div><strong>Data inizio:</strong> ${formatDate(ben.start_date) || '—'}</div>
+          <div><strong>Contatto ente:</strong> ${sanitize(ben.referring_contact) || '—'}</div>
+        </div>
+        ${ben.notes ? `<div style="margin-bottom:16px;font-size:14px"><strong>Note:</strong> ${sanitize(ben.notes)}</div>` : ''}
+
+        <div style="display:flex;gap:16px;margin-bottom:12px">
+          <div style="background:var(--bg-secondary);padding:8px 16px;border-radius:8px;text-align:center">
+            <div style="font-size:20px;font-weight:700;color:var(--primary)">${ben.activities.length}</div>
+            <div style="font-size:12px;color:#666">Attività</div>
+          </div>
+          <div style="background:var(--bg-secondary);padding:8px 16px;border-radius:8px;text-align:center">
+            <div style="font-size:20px;font-weight:700;color:var(--primary)">${totalHours.toFixed(1).replace('.0','')} h</div>
+            <div style="font-size:12px;color:#666">Ore totali</div>
+          </div>
+        </div>
+
+        ${ben.activities.length === 0 ? '<p class="text-muted">Nessuna attività registrata</p>' : `
+          <div class="table-container" style="max-height:350px;overflow-y:auto">
+            <table class="card-table">
+              <thead><tr><th>Data</th><th>Servizio</th><th>Durata</th><th>Descrizione</th></tr></thead>
+              <tbody>${ben.activities.map(a => `<tr>
+                <td data-label="Data">${formatDate(a.activity_date)}</td>
+                <td data-label="Servizio">${SERVICE_LABELS[a.service_type] || a.service_type || '—'}</td>
+                <td data-label="Durata">${a.duration_minutes ? (a.duration_minutes / 60).toFixed(1).replace('.0','') + ' h' : '—'}</td>
+                <td data-label="Descrizione">${sanitize(a.description)}</td>
+              </tr>`).join('')}</tbody>
+            </table>
+          </div>
+        `}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
 // ============================================================
 // PAGE: ACTIVITIES
 // ============================================================
@@ -1664,7 +1720,7 @@ async function renderActivities() {
         <tbody>${activities.map(a => `<tr>
           <td data-label="Data">${formatDate(a.activity_date)}</td>
           <td data-label="Organizzazione"><a href="#organization-detail/${a.organization_id}" style="color:var(--primary)">${sanitize(a.org_name)}</a></td>
-          <td data-label="Beneficiario">${sanitize(a.beneficiary_code) || 'Gruppo'}</td>
+          <td data-label="Beneficiario">${a.beneficiary_id ? `<a href="#" onclick="event.preventDefault();showBeneficiaryDetail('${a.beneficiary_id}')" style="color:var(--primary);font-weight:600">${sanitize(a.beneficiary_code)}</a>` : 'Gruppo'}</td>
           <td data-label="Servizio">${SERVICE_LABELS[a.service_type] || a.service_type || '—'}</td>
           <td data-label="Durata">${a.duration_minutes ? (a.duration_minutes / 60).toFixed(1).replace('.0','') + ' h' : '—'}</td>
           <td data-label="Descrizione">${sanitize(a.description)}</td>
@@ -1692,6 +1748,9 @@ function showAddActivityModal() {
         <div class="modal-body">
           <form id="act-form">
             ${orgField}
+            <div class="form-group"><label>Beneficiario *</label>
+              <select id="act-ben" required><option value="">Seleziona beneficiario...</option></select>
+            </div>
             <div class="form-row">
               <div class="form-group"><label>Data *</label><input type="date" id="act-date" required value="${new Date().toISOString().split('T')[0]}"></div>
               <div class="form-group"><label>Durata (ore)</label><input type="number" id="act-dur" step="0.5" min="0.5" placeholder="2"></div>
@@ -1712,13 +1771,27 @@ function showAddActivityModal() {
     const result = await api('/beneficiaries/activities', {
       method: 'POST',
       body: JSON.stringify({
-        organizationId: $('#act-org').value, activityDate: $('#act-date').value,
+        organizationId: $('#act-org').value, beneficiaryId: $('#act-ben').value, activityDate: $('#act-date').value,
         serviceType: $('#act-type').value, durationMinutes: Math.round(parseFloat($('#act-dur').value) * 60) || null,
         description: $('#act-desc').value, notes: $('#act-notes').value
       })
     });
     if (result) { toast('Attività registrata!', 'success'); renderActivities(); }
   };
+
+  // Funzione per caricare beneficiari di un'organizzazione
+  function loadBeneficiariesForOrg(selectedOrgId) {
+    const benSel = document.getElementById('act-ben');
+    benSel.innerHTML = '<option value="">Seleziona beneficiario...</option>';
+    if (!selectedOrgId) return;
+    api(`/beneficiaries?organization_id=${selectedOrgId}&status=active`).then(bens => {
+      if (bens && bens.length) {
+        bens.forEach(b => {
+          benSel.innerHTML += `<option value="${b.id}">${sanitize(b.code)} — ${TARGET_LABELS[b.target_type] || b.target_type || ''}</option>`;
+        });
+      }
+    });
+  }
 
   // Popola dropdown organizzazioni per admin
   if (!orgId && document.getElementById('act-org')?.tagName === 'SELECT') {
@@ -1730,6 +1803,11 @@ function showAddActivityModal() {
         });
       }
     });
+    // Quando cambia organizzazione, aggiorna beneficiari
+    document.getElementById('act-org').addEventListener('change', (e) => loadBeneficiariesForOrg(e.target.value));
+  } else if (orgId) {
+    // Per org_admin/operatore, carica subito i beneficiari della propria org
+    loadBeneficiariesForOrg(orgId);
   }
 }
 
@@ -1905,7 +1983,7 @@ async function renderOrganizationDetail(id) {
           <div class="table-container"><table class="card-table">
             <thead><tr><th>Codice</th><th>Tipologia</th><th>Stato</th><th>Ente inviante</th><th>Attività</th></tr></thead>
             <tbody>${bens.map(b => `<tr>
-              <td data-label="Codice"><strong>${sanitize(b.code)}</strong></td>
+              <td data-label="Codice"><a href="#" onclick="event.preventDefault();showBeneficiaryDetail('${b.id}')" style="color:var(--primary);font-weight:600">${sanitize(b.code)}</a></td>
               <td data-label="Tipologia">${TARGET_LABELS[b.target_type] || b.target_type || '—'}</td>
               <td data-label="Stato">${badge(b.status)}</td>
               <td data-label="Ente inv.">${sanitize(b.referring_entity) || '—'}</td>
@@ -1917,20 +1995,19 @@ async function renderOrganizationDetail(id) {
     </div>
 
     <div class="card">
-      <div class="card-header"><h3>📋 Attività recenti (${activities.length})</h3></div>
+      <div class="card-header"><h3>📋 Attività (${activities.length})</h3></div>
       <div class="card-body">
         ${activities.length === 0 ? '<p class="text-muted">Nessuna attività registrata</p>' : `
           <div class="table-container"><table class="card-table">
             <thead><tr><th>Data</th><th>Beneficiario</th><th>Servizio</th><th>Durata</th><th>Descrizione</th></tr></thead>
-            <tbody>${activities.slice(0, 20).map(a => `<tr>
+            <tbody>${activities.map(a => `<tr>
               <td data-label="Data">${formatDate(a.activity_date)}</td>
-              <td data-label="Beneficiario">${sanitize(a.beneficiary_code) || 'Gruppo'}</td>
+              <td data-label="Beneficiario">${a.beneficiary_id ? `<a href="#" onclick="event.preventDefault();showBeneficiaryDetail('${a.beneficiary_id}')" style="color:var(--primary);font-weight:600">${sanitize(a.beneficiary_code)}</a>` : 'Gruppo'}</td>
               <td data-label="Servizio">${SERVICE_LABELS[a.service_type] || a.service_type || '—'}</td>
               <td data-label="Durata">${a.duration_minutes ? (a.duration_minutes / 60).toFixed(1).replace('.0','') + ' h' : '—'}</td>
               <td data-label="Descrizione">${sanitize(a.description)}</td>
             </tr>`).join('')}</tbody>
           </table></div>
-          ${activities.length > 20 ? `<p class="text-sm text-muted mt-1">Mostrate le ultime 20 su ${activities.length} totali</p>` : ''}
         `}
       </div>
     </div>

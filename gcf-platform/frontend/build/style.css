@@ -70,7 +70,7 @@ option { background-color: #fff; color: #333; }
 .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
 
 /* Buttons */
-.btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border: none; border-radius: var(--radius); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 20px; border: none; border-radius: var(--radius); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit; text-align: center; line-height: 1; box-sizing: border-box; }
 .btn-primary { background: var(--primary); color: white; }
 .btn-primary:hover { background: var(--primary-light); }
 .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
@@ -354,4 +354,4 @@ tr:hover td { background: rgba(45,90,39,0.03); }
 .confirm-modal-title { font-size: 20px; font-weight: 700; color: #1a1a1a; margin: 0 0 8px 0; }
 .confirm-modal-text { font-size: 14px; color: #666; margin: 0 0 24px 0; }
 .confirm-modal-actions { display: flex; gap: 12px; justify-content: center; }
-.confirm-modal-actions .btn { min-width: 120px; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 14px; }
+.confirm-modal-actions .btn { min-width: 120px; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 14px; line-height: 1; }
