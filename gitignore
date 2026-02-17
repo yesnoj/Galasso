@@ -1,18 +1,18 @@
+# OS
+.DS_Store
+Thumbs.db
+
 # Dipendenze
 node_modules/
 
 # Database (generato dal seed)
-backend/db/*.sqlite
+*.sqlite
 
 # Documenti caricati dagli utenti
-backend/uploads/*.pdf
+gcf-platform/backend/uploads/*.pdf
 
 # Variabili d'ambiente (contiene JWT_SECRET)
-backend/.env
+.env
 
 # Archivi
 *.tar.gz
-
-# OS
-.DS_Store
-Thumbs.db
