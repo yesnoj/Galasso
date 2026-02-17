@@ -46,7 +46,7 @@ a:hover { text-decoration: underline; }
 .sidebar-user .user-role { font-size: 11px; opacity: 0.6; }
 
 /* Login Page */
-.login-page { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%); }
+.login-page { display: flex; justify-content: center; align-items: center; min-height: 100vh; min-height: 100dvh; background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%); }
 .login-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 100%; max-width: 420px; }
 .login-card h1 { color: var(--primary); font-size: 24px; margin-bottom: 5px; }
 .login-card .subtitle { color: var(--text-light); margin-bottom: 30px; font-size: 14px; }
@@ -267,6 +267,7 @@ tr:hover td { background: rgba(45,90,39,0.03); }
 
   /* Login */
   .login-card { padding: 24px 20px; margin: 16px; }
+  .login-page { min-height: 100vh; min-height: 100dvh; padding: 20px 0; align-items: flex-start; padding-top: 15vh; }
   .login-card h1 { font-size: 20px; }
 
   /* Toasts */
