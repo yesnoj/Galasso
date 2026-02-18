@@ -134,19 +134,44 @@ router.put('/:id/status', authenticate, authorize('admin', 'auditor'), (req, res
     
     if (status === 'doc_review') updates.doc_review_date = new Date().toISOString();
     if (status === 'issued') {
+      // Verifica che l'ultimo audit sia completamente conforme (tutti C)
+      const cert = db.prepare('SELECT * FROM certifications WHERE id = ?').get(req.params.id);
+      if (!cert) return res.status(404).json({ error: 'Certificazione non trovata' });
+
+      const latestAudit = db.prepare(`
+        SELECT * FROM audits WHERE certification_id = ? AND status = 'completed'
+        ORDER BY completed_date DESC LIMIT 1
+      `).get(req.params.id);
+
+      if (!latestAudit) {
+        return res.status(400).json({ error: 'Nessun audit completato trovato per questa certificazione' });
+      }
+      if (latestAudit.outcome !== 'conforming') {
+        return res.status(400).json({ 
+          error: 'Impossibile rilasciare il certificato: non tutti i requisiti sono conformi. Esito ultimo audit: ' + latestAudit.outcome 
+        });
+      }
+
       const now = new Date();
       updates.issue_date = now.toISOString();
       updates.expiry_date = new Date(now.setFullYear(now.getFullYear() + 3)).toISOString();
       
-      // Genera numero certificato
-      const count = db.prepare("SELECT COUNT(*) as n FROM certifications WHERE cert_number IS NOT NULL").get().n;
-      updates.cert_number = `GCF-${new Date().getFullYear()}-${String(count + 1).padStart(3, '0')}`;
+      // Genera numero certificato (usa MAX per evitare duplicati)
+      const year = new Date().getFullYear();
+      const maxResult = db.prepare(`
+        SELECT cert_number FROM certifications 
+        WHERE cert_number LIKE 'GCF-${year}-%' 
+        ORDER BY cert_number DESC LIMIT 1
+      `).get();
+      let nextNum = 1;
+      if (maxResult && maxResult.cert_number) {
+        const parts = maxResult.cert_number.split('-');
+        nextNum = parseInt(parts[2]) + 1;
+      }
+      updates.cert_number = `GCF-${year}-${String(nextNum).padStart(3, '0')}`;
       
       // Attiva organizzazione
-      const cert = db.prepare('SELECT organization_id FROM certifications WHERE id = ?').get(req.params.id);
-      if (cert) {
-        db.prepare("UPDATE organizations SET status = 'active', updated_at = datetime('now') WHERE id = ?").run(cert.organization_id);
-      }
+      db.prepare("UPDATE organizations SET status = 'active', updated_at = datetime('now') WHERE id = ?").run(cert.organization_id);
     }
     if (status === 'approved' || status === 'rejected') updates.decision_date = new Date().toISOString();
 

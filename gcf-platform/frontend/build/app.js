@@ -202,6 +202,35 @@ function sanitize(str) {
   return el.innerHTML;
 }
 
+function filterTable(tableId, query) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  const rows = table.querySelectorAll('tbody tr');
+  const q = query.toLowerCase().trim();
+  let visible = 0;
+  rows.forEach(row => {
+    // Costruisci testo cercabile: per le select usa solo l'opzione selezionata
+    let text = '';
+    row.querySelectorAll('td').forEach(td => {
+      const sel = td.querySelector('select');
+      if (sel) {
+        text += ' ' + sel.options[sel.selectedIndex].text;
+      } else {
+        text += ' ' + td.textContent;
+      }
+    });
+    const show = !q || text.toLowerCase().includes(q);
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  const countId = tableId.replace('-table', '-count');
+  const countEl = document.getElementById(countId);
+  if (countEl) {
+    const total = rows.length;
+    countEl.textContent = q ? `${visible} di ${total} risultati` : `Totale: ${total}`;
+  }
+}
+
 function togglePw(inputId, btn) {
   const input = $(`#${inputId}`);
   if (input.type === 'password') { input.type = 'text'; btn.textContent = '🔒'; }
@@ -723,7 +752,14 @@ async function renderOrganizations() {
     tableHtml = `<div class="empty-state"><div class="icon">🏠</div><h3>Nessuna organizzazione</h3>
       <p>Crea la tua organizzazione per iniziare</p></div>`;
   } else {
-    tableHtml = `<div class="table-container"><table class="card-table">
+    tableHtml = `
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+        <input type="text" id="filter-orgs" placeholder="🔍 Filtra per nome, città, forma giuridica..." 
+          style="flex:1;min-width:200px;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px"
+          oninput="filterTable('orgs-table', this.value)">
+        <span class="text-sm text-muted" id="orgs-count">Totale: ${orgs.length} organizzazioni</span>
+      </div>
+      <div class="table-container"><table class="card-table" id="orgs-table">
       <thead><tr><th>Nome</th><th>Forma giuridica</th><th>Città</th><th>Stato</th><th>Azioni</th></tr></thead>
       <tbody>${orgs.map(o => `<tr>
         <td data-label="Nome"><strong><a href="#organization-detail/${o.id}" style="color:var(--primary)">${sanitize(o.name)}</a></strong></td>
@@ -885,7 +921,13 @@ async function renderCertifications() {
     </div>
   ` : `
     ${actions ? `<div class="mb-2">${actions}</div>` : ''}
-    <div class="table-container"><table class="card-table">
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+      <input type="text" id="filter-certs" placeholder="🔍 Filtra per organizzazione, numero certificato, stato..." 
+        style="flex:1;min-width:200px;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px"
+        oninput="filterTable('certs-table', this.value)">
+      <span class="text-sm text-muted" id="certs-count">Totale: ${certs.length} certificazioni</span>
+    </div>
+    <div class="table-container"><table class="card-table" id="certs-table">
       <thead><tr><th>Organizzazione</th><th>N. Certificato</th><th>Stato</th><th>Data domanda</th><th>Scadenza</th><th>Azioni</th></tr></thead>
       <tbody>${certs.map(c => `<tr>
         <td data-label="Organizzazione"><a href="#organization-detail/${c.organization_id}" style="color:var(--primary)">${sanitize(c.org_name)}</a></td>
@@ -916,20 +958,48 @@ async function renderCertificationDetail(id) {
     const nextStatuses = {
       submitted: [['doc_review', 'Inizia revisione documenti']],
       doc_review: [['doc_approved', 'Approva documenti'], ['doc_rejected', 'Respingi documenti']],
-      audit_completed: [['approved', 'Approva'], ['rejected', 'Respingi']],
       approved: [['issued', 'Rilascia certificato']]
     };
-    const available = nextStatuses[cert.status] || [];
-    if (available.length > 0) {
-      actionsHtml = `<div class="mt-2">${available.map(([s, l]) => 
-        `<button class="btn ${s.includes('reject') ? 'btn-danger' : 'btn-primary'} btn-sm" 
-         onclick="updateCertStatus('${id}', '${s}')">${l}</button>`).join(' ')}</div>`;
+
+    // Per audit_completed, le azioni dipendono dall'esito dell'audit
+    if (cert.status === 'audit_completed' && cert.audits && cert.audits.length > 0) {
+      const lastAudit = cert.audits.find(a => a.status === 'completed');
+      if (lastAudit && lastAudit.outcome === 'conforming') {
+        // Tutti i 10 requisiti conformi → può rilasciare
+        actionsHtml = `
+          <div class="alert" style="background:#e8f5e9;border-left:4px solid #2e7d32;padding:12px;margin-top:12px">
+            <strong>✅ Audit superato:</strong> tutti i 10 requisiti risultano conformi. È possibile rilasciare il certificato.
+          </div>
+          <div class="mt-2">
+            <button class="btn btn-primary btn-sm" onclick="updateCertStatus('${id}', 'issued')">🏆 Rilascia certificato</button>
+          </div>`;
+      } else {
+        // Non tutti conformi → azioni correttive + nuovo audit
+        const outcomeLabel = lastAudit ? (lastAudit.outcome === 'non_conforming' ? 'Non conforme' : 'Conforme con azioni correttive') : 'Sconosciuto';
+        actionsHtml = `
+          <div class="alert alert-danger" style="margin-top:12px">
+            <strong>⚠️ Esito audit: ${outcomeLabel}</strong><br>
+            Non tutti i requisiti sono risultati conformi. L'organizzazione deve effettuare le azioni correttive necessarie, 
+            dopodiché sarà necessario pianificare un nuovo audit di verifica.
+          </div>
+          <div class="mt-2">
+            <button class="btn btn-primary btn-sm" onclick="createAudit('${id}')">📋 Pianifica nuovo audit</button>
+            <button class="btn btn-danger btn-sm" onclick="updateCertStatus('${id}', 'rejected')">❌ Respingi certificazione</button>
+          </div>`;
+      }
+    } else {
+      const available = nextStatuses[cert.status] || [];
+      if (available.length > 0) {
+        actionsHtml = `<div class="mt-2">${available.map(([s, l]) => 
+          `<button class="btn ${s.includes('reject') ? 'btn-danger' : 'btn-primary'} btn-sm" 
+           onclick="updateCertStatus('${id}', '${s}')">${l}</button>`).join(' ')}</div>`;
+      }
     }
   }
 
-  // Pulsante pianifica audit (unico pulsante — apre modal selezione auditor)
+  // Pulsante pianifica audit (solo per doc_approved o audit_scheduled, non audit_completed che è gestito sopra)
   let auditBtn = '';
-  if (canManage && ['doc_approved', 'audit_scheduled'].includes(cert.status)) {
+  if (canManage && cert.status === 'doc_approved') {
     auditBtn = `<button class="btn btn-primary mt-2" onclick="createAudit('${id}')">📋 Pianifica audit</button>`;
   }
 
@@ -1277,7 +1347,13 @@ async function renderAudits() {
   $('#page-content').innerHTML = audits.length === 0 ? `
     <div class="empty-state"><div class="icon">✅</div><h3>Nessun audit</h3></div>
   ` : `
-    <div class="table-container"><table class="card-table">
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+      <input type="text" id="filter-audits" placeholder="🔍 Filtra per organizzazione, tipo, stato, esito..." 
+        style="flex:1;min-width:200px;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px"
+        oninput="filterTable('audits-table', this.value)">
+      <span class="text-sm text-muted" id="audits-count">Totale: ${audits.length} audit</span>
+    </div>
+    <div class="table-container"><table class="card-table" id="audits-table">
       <thead><tr><th>Organizzazione</th><th>Tipo</th><th>Data</th><th>Stato</th><th>Esito</th><th>Azioni</th></tr></thead>
       <tbody>${audits.map(a => `<tr>
         <td data-label="Organizzazione"><a href="#organization-detail/${a.organization_id}" style="color:var(--primary)">${sanitize(a.org_name)}</a></td>
@@ -1333,7 +1409,7 @@ async function renderAuditChecklist(auditId) {
       <div class="card-body flex-between">
         <div>
           <strong>${sanitize(audit.org_name)}</strong> — ${sanitize(audit.org_city)}<br>
-          <span class="text-sm text-muted">Tipo: ${translateAuditType(audit.audit_type)} | Modalità: ${translateAuditMode(audit.audit_mode)} | ${badge(audit.status)}</span>
+          <span class="text-sm text-muted">Auditor: <strong>${sanitize(audit.auditor_first_name || '')} ${sanitize(audit.auditor_last_name || '')}</strong> | Tipo: ${translateAuditType(audit.audit_type)} | Modalità: ${translateAuditMode(audit.audit_mode)} | ${badge(audit.status)}</span>
         </div>
         <div>
           <span class="badge badge-C">C: ${audit.total_conforming}</span>
@@ -1570,13 +1646,26 @@ async function renderBeneficiaries() {
   $('#page-content').innerHTML = `
     ${canAdd ? '<button class="btn btn-primary mb-2" onclick="showAddBeneficiaryModal()">+ Nuovo beneficiario</button>' : ''}
     ${bens.length === 0 ? '<div class="empty-state"><div class="icon">👥</div><h3>Nessun beneficiario registrato</h3></div>' : `
-      <div class="table-container"><table class="card-table">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+        <input type="text" id="filter-beneficiaries" placeholder="🔍 Filtra per codice, organizzazione, tipologia, ente..." 
+          style="flex:1;min-width:200px;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px"
+          oninput="filterTable('beneficiaries-table', this.value)">
+        <span class="text-sm text-muted" id="beneficiaries-count">Totale: ${bens.length} beneficiari</span>
+      </div>
+      <div class="table-container"><table class="card-table" id="beneficiaries-table">
         <thead><tr><th>Codice</th><th>Organizzazione</th><th>Tipologia</th><th>Stato</th><th>Ente inviante</th><th>Attività</th>${canAdd ? '<th>Azioni</th>' : ''}</tr></thead>
         <tbody>${bens.map(b => `<tr>
           <td data-label="Codice"><a href="#" onclick="event.preventDefault();showBeneficiaryDetail('${b.id}')" style="color:var(--primary);font-weight:600">${sanitize(b.code)}</a></td>
           <td data-label="Organizzazione"><a href="#organization-detail/${b.organization_id}" style="color:var(--primary)">${sanitize(b.org_name)}</a></td>
           <td data-label="Tipologia">${TARGET_LABELS[b.target_type] || b.target_type || '—'}</td>
-          <td data-label="Stato">${badge(b.status)}</td>
+          <td data-label="Stato">${canAdd ? `
+            <select onchange="changeBenStatus('${b.id}', this.value)" style="padding:4px 8px;border-radius:6px;border:1px solid #ddd;font-size:13px">
+              <option value="active" ${b.status==='active'?'selected':''}>✅ Attivo</option>
+              <option value="completed" ${b.status==='completed'?'selected':''}>🏁 Completato</option>
+              <option value="suspended" ${b.status==='suspended'?'selected':''}>⚠️ Sospeso</option>
+              <option value="dropped" ${b.status==='dropped'?'selected':''}>❌ Abbandonato</option>
+            </select>
+          ` : badge(b.status)}</td>
           <td data-label="Ente inv.">${sanitize(b.referring_entity) || '—'}</td>
           <td data-label="Attività">${b.activity_count || 0}</td>
           ${canAdd ? `<td data-label=""><div style="display:flex;gap:4px;flex-wrap:nowrap">
@@ -1588,6 +1677,16 @@ async function renderBeneficiaries() {
     `}
     <div id="modal-container"></div>
   `;
+}
+
+async function changeBenStatus(benId, newStatus) {
+  const result = await api(`/beneficiaries/${benId}`, {
+    method: 'PUT', body: JSON.stringify({ status: newStatus })
+  });
+  if (result) {
+    const labels = { active: 'Attivo', completed: 'Completato', suspended: 'Sospeso', dropped: 'Abbandonato' };
+    toast(`Stato aggiornato: ${labels[newStatus]}`, 'success');
+  }
 }
 
 function showAddBeneficiaryModal() {
@@ -1715,7 +1814,13 @@ async function renderActivities() {
   $('#page-content').innerHTML = `
     ${canAdd ? '<button class="btn btn-primary mb-2" onclick="showAddActivityModal()">+ Registra attività</button>' : ''}
     ${activities.length === 0 ? '<div class="empty-state"><div class="icon">📋</div><h3>Nessuna attività registrata</h3></div>' : `
-      <div class="table-container"><table class="card-table">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+        <input type="text" id="filter-activities" placeholder="🔍 Filtra per organizzazione, beneficiario, servizio, descrizione..." 
+          style="flex:1;min-width:200px;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px"
+          oninput="filterTable('activities-table', this.value)">
+        <span class="text-sm text-muted" id="activities-count">Totale: ${activities.length} attività</span>
+      </div>
+      <div class="table-container"><table class="card-table" id="activities-table">
         <thead><tr><th>Data</th><th>Organizzazione</th><th>Beneficiario</th><th>Servizio</th><th>Durata</th><th>Descrizione</th>${canAdd ? '<th>Azioni</th>' : ''}</tr></thead>
         <tbody>${activities.map(a => `<tr>
           <td data-label="Data">${formatDate(a.activity_date)}</td>
@@ -1829,19 +1934,11 @@ async function showEditBeneficiaryModal(benId) {
           ${Object.entries(TARGET_LABELS).map(([v,l]) => `<option value="${v}" ${v===b.target_type?'selected':''}>${l}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" style="margin-bottom:12px"><label>Stato</label>
-        <select id="eb-status" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px">
-          <option value="active" ${b.status==='active'?'selected':''}>Attivo</option>
-          <option value="completed" ${b.status==='completed'?'selected':''}>Completato</option>
-          <option value="suspended" ${b.status==='suspended'?'selected':''}>Sospeso</option>
-          <option value="dropped" ${b.status==='dropped'?'selected':''}>Abbandonato</option>
-        </select>
-      </div>
       <div class="form-group" style="margin-bottom:12px"><label>Ente inviante</label>
         <input id="eb-entity" value="${sanitize(b.referring_entity||'')}" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px">
       </div>
-      <div class="form-group" style="margin-bottom:12px"><label>Data fine</label>
-        <input type="date" id="eb-end" value="${b.end_date||''}" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px">
+      <div class="form-group" style="margin-bottom:12px"><label>Data inizio</label>
+        <input type="date" id="eb-start" value="${b.start_date||''}" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px">
       </div>
       <div class="form-group" style="margin-bottom:20px"><label>Note</label>
         <textarea id="eb-notes" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;min-height:60px">${sanitize(b.notes||'')}</textarea>
@@ -1860,9 +1957,8 @@ async function showEditBeneficiaryModal(benId) {
   overlay.querySelector('#modal-confirm').onclick = async () => {
     const body = {
       targetType: overlay.querySelector('#eb-target').value || null,
-      status: overlay.querySelector('#eb-status').value,
       referringEntity: overlay.querySelector('#eb-entity').value.trim() || null,
-      endDate: overlay.querySelector('#eb-end').value || null,
+      startDate: overlay.querySelector('#eb-start').value || null,
       notes: overlay.querySelector('#eb-notes').value.trim() || null,
     };
     overlay.remove();
@@ -2393,7 +2489,13 @@ async function renderAdminUsers() {
 
   $('#page-content').innerHTML = `
     <div class="mb-2"><button class="btn btn-primary" onclick="showCreateUserModal()">+ Nuovo utente</button></div>
-    <div class="table-container"><table class="card-table">
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+      <input type="text" id="filter-users" placeholder="🔍 Filtra per nome, email, ruolo, organizzazione..." 
+        style="flex:1;min-width:200px;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px"
+        oninput="filterTable('users-table', this.value)">
+      <span class="text-sm text-muted" id="users-count">Totale: ${users.length} utenti</span>
+    </div>
+    <div class="table-container"><table class="card-table" id="users-table">
       <thead><tr><th>Nome</th><th>Email</th><th>Ruolo</th><th>Organizzazione</th><th>Stato</th><th>Ultimo accesso</th><th>Azioni</th></tr></thead>
       <tbody>${users.map(u => `<tr>
         <td data-label="Nome">${sanitize(u.first_name)} ${sanitize(u.last_name)}</td>

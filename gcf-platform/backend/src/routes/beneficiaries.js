@@ -16,7 +16,7 @@ const { authenticate, authorize } = require('../middleware/auth');
 router.get('/activities/list', authenticate, (req, res) => {
   try {
     const db = getDb();
-    const { organization_id, beneficiary_id, from, to, page = 1, limit = 50 } = req.query;
+    const { organization_id, beneficiary_id, from, to, search } = req.query;
     let where = '1=1';
     let params = [];
 
@@ -30,8 +30,7 @@ router.get('/activities/list', authenticate, (req, res) => {
     if (beneficiary_id) { where += ' AND al.beneficiary_id = ?'; params.push(beneficiary_id); }
     if (from) { where += ' AND al.activity_date >= ?'; params.push(from); }
     if (to) { where += ' AND al.activity_date <= ?'; params.push(to); }
-
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    if (search) { where += ' AND (b.code LIKE ? OR o.name LIKE ? OR al.description LIKE ? OR al.service_type LIKE ?)'; const s = `%${search}%`; params.push(s, s, s, s); }
 
     const activities = db.prepare(`
       SELECT al.*, b.code as beneficiary_code, o.name as org_name
@@ -40,8 +39,7 @@ router.get('/activities/list', authenticate, (req, res) => {
       JOIN organizations o ON al.organization_id = o.id
       WHERE ${where}
       ORDER BY al.activity_date DESC
-      LIMIT ? OFFSET ?
-    `).all(...params, parseInt(limit), offset);
+    `).all(...params);
 
     res.json(activities);
   } catch (err) {
@@ -207,16 +205,16 @@ router.post('/', authenticate, authorize('admin', 'org_admin', 'org_operator'), 
 // PUT /api/beneficiaries/:id
 router.put('/:id', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
   try {
-    const { status, targetType, referringEntity, referringContact, endDate, notes } = req.body;
+    const { status, targetType, referringEntity, referringContact, startDate, notes } = req.body;
     const db = getDb();
 
     db.prepare(`
       UPDATE beneficiaries SET 
         status = COALESCE(?, status), target_type = COALESCE(?, target_type),
         referring_entity = COALESCE(?, referring_entity), referring_contact = COALESCE(?, referring_contact),
-        end_date = COALESCE(?, end_date), notes = COALESCE(?, notes), updated_at = datetime('now')
+        start_date = COALESCE(?, start_date), notes = COALESCE(?, notes), updated_at = datetime('now')
       WHERE id = ?
-    `).run(status, targetType, referringEntity, referringContact, endDate, notes, req.params.id);
+    `).run(status, targetType, referringEntity, referringContact, startDate, notes, req.params.id);
 
     res.json({ message: 'Beneficiario aggiornato' });
   } catch (err) {

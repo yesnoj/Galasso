@@ -11,7 +11,7 @@ const { authenticate, authorize, optionalAuth } = require('../middleware/auth');
 router.get('/', optionalAuth, (req, res) => {
   try {
     const db = getDb();
-    const { status, region, province, city, service_type, target_type, search, page = 1, limit = 20 } = req.query;
+    const { status, region, province, city, service_type, target_type, search } = req.query;
     
     let where = ['1=1'];
     let params = [];
@@ -38,8 +38,6 @@ router.get('/', optionalAuth, (req, res) => {
       params.push(target_type);
     }
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-
     const countSql = `SELECT COUNT(*) as total FROM organizations o WHERE ${where.join(' AND ')}`;
     const total = db.prepare(countSql).get(...params).total;
 
@@ -50,10 +48,9 @@ router.get('/', optionalAuth, (req, res) => {
       FROM organizations o 
       WHERE ${where.join(' AND ')}
       ORDER BY o.name
-      LIMIT ? OFFSET ?
     `;
 
-    const orgs = db.prepare(sql).all(...params, parseInt(limit), offset);
+    const orgs = db.prepare(sql).all(...params);
 
     // Aggiungi servizi e target per ogni org
     const getServices = db.prepare('SELECT service_type, description FROM organization_services WHERE organization_id = ?');
@@ -65,7 +62,7 @@ router.get('/', optionalAuth, (req, res) => {
       targets: getTargets.all(org.id)
     }));
 
-    res.json({ data: results, total, page: parseInt(page), limit: parseInt(limit) });
+    res.json({ data: results, total });
   } catch (err) {
     console.error('Get organizations error:', err);
     res.status(500).json({ error: 'Errore nel recupero organizzazioni' });

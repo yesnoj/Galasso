@@ -168,7 +168,7 @@ router.get('/:id', (req, res) => {
 
     const services = db.prepare('SELECT service_type, description FROM organization_services WHERE organization_id = ?').all(org.id);
     const targets = db.prepare('SELECT target_type, notes FROM organization_target_users WHERE organization_id = ?').all(org.id);
-    const reviews = db.prepare('SELECT author_name, author_role, rating, comment, created_at FROM reviews WHERE organization_id = ? AND is_published = 1 ORDER BY created_at DESC LIMIT 10').all(org.id);
+    const reviews = db.prepare('SELECT author_name, author_role, rating, comment, created_at FROM reviews WHERE organization_id = ? AND is_published = 1 ORDER BY created_at DESC').all(org.id);
     const events = db.prepare("SELECT * FROM events WHERE organization_id = ? AND event_date >= date('now') ORDER BY event_date LIMIT 5").all(org.id);
 
     res.json({ ...org, services, targets, reviews, events });
