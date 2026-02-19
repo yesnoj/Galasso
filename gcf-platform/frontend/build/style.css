@@ -161,7 +161,7 @@ tr:hover td { background: rgba(45,90,39,0.03); }
 .org-tag { background: var(--bg); padding: 2px 8px; border-radius: 4px; font-size: 11px; color: var(--text-light); }
 
 /* Modal */
-.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; justify-content: center; align-items: center; }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; justify-content: center; align-items: center; overflow-y: auto; }
 .modal { background: white; border-radius: 12px; width: 90%; max-width: 600px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
 .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
 .modal-header h3 { font-size: 18px; }
@@ -257,8 +257,9 @@ tr:hover td { background: rgba(45,90,39,0.03); }
   .audit-area h3 { font-size: 14px; padding: 10px 12px; }
   .evidence-checks { gap: 6px; }
 
-  /* Modal */
-  .confirm-modal { width: 95% !important; max-width: none !important; padding: 24px 20px; }
+  /* Modal - scrollable on mobile */
+  .modal-overlay { align-items: flex-start !important; padding: 20px 0; }
+  .confirm-modal { width: 95% !important; max-width: none !important; padding: 24px 20px; margin: 20px auto; max-height: none; }
   .confirm-modal-actions { flex-direction: column; }
   .confirm-modal-actions .btn { min-width: auto; width: 100%; }
   .modal { width: 95% !important; max-width: none !important; }
@@ -341,7 +342,7 @@ tr:hover td { background: rgba(45,90,39,0.03); }
 .modal-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0); display: flex; align-items: center; justify-content: center;
-  z-index: 2000; transition: background 0.2s ease;
+  z-index: 2000; transition: background 0.2s ease; overflow-y: auto;
 }
 .modal-overlay.visible { background: rgba(0,0,0,0.5); }
 .modal-overlay.visible .confirm-modal { transform: scale(1); opacity: 1; }
