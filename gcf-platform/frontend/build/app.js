@@ -33,9 +33,7 @@ const TARGET_LABELS = {
 };
 
 const LEGAL_FORMS = {
-  azienda_agricola: 'Azienda agricola', cooperativa_sociale: 'Cooperativa sociale',
-  cooperativa_agricola: 'Cooperativa agricola', associazione: 'Associazione',
-  fondazione: 'Fondazione', ente_pubblico: 'Ente pubblico', altro: 'Altro'
+  impresa_agricola: 'Impresa agricola', cooperativa_sociale: 'Cooperativa sociale'
 };
 
 const AUDIT_TYPE_LABELS = {
@@ -773,13 +771,13 @@ async function renderOrganizations() {
             <option value="revoked" ${o.status==='revoked'?'selected':''}>❌ Revocata</option>
           </select>
         ` : badge(o.status)}</td>
-        <td data-label=""><button class="btn btn-secondary btn-sm" onclick="navigate('organization-edit','${o.id}')">✏️</button></td>
+        <td data-label="">${['admin','org_admin','org_operator'].includes(state.user.role) ? `<button class="btn btn-secondary btn-sm" onclick="navigate('organization-edit','${o.id}')">✏️</button>` : ''}</td>
       </tr>`).join('')}</tbody>
     </table></div>`;
   }
 
   $('#page-content').innerHTML = `
-    <button class="btn btn-primary mb-2" onclick="navigate('organization-edit','new')">+ Nuova organizzazione</button>
+    ${state.user.role === 'admin' ? '<button class="btn btn-primary mb-2" onclick="navigate(\'organization-edit\',\'new\')">+ Nuova organizzazione</button>' : ''}
     ${tableHtml}
   `;
 }
@@ -908,16 +906,17 @@ async function renderCertifications() {
 
   const isAdmin = state.user.role === 'admin';
   const isOrg = state.user.role === 'org_admin' || state.user.role === 'org_operator';
+  const isOrgAdmin = state.user.role === 'org_admin';
   const orgId = state.user.organization?.id;
 
-  // Verifica se l'org può fare domanda (nessuna cert attiva/in corso)
-  const canRequest = isOrg && orgId && !certs.some(c => ['draft','submitted','doc_review','doc_approved','audit_scheduled','audit_completed','approved','issued'].includes(c.status));
+  // Verifica se l'org può fare domanda (solo org_admin, nessuna cert attiva/in corso)
+  const canRequest = isOrgAdmin && orgId && !certs.some(c => ['draft','submitted','doc_review','doc_approved','audit_scheduled','audit_completed','approved','issued'].includes(c.status));
 
   const actions = canRequest ? `<button class="btn btn-primary" onclick="requestCertification()">📜 Richiedi certificazione</button>` : '';
 
   $('#page-content').innerHTML = certs.length === 0 ? `
     <div class="empty-state"><div class="icon">📜</div><h3>Nessuna certificazione</h3>
-    ${isOrg ? `<p>Non hai ancora una certificazione.</p><button class="btn btn-primary mt-2" onclick="requestCertification()">📜 Richiedi certificazione</button>` : '<p>Nessuna certificazione presente.</p>'}
+    ${isOrgAdmin ? `<p>Non hai ancora una certificazione.</p><button class="btn btn-primary mt-2" onclick="requestCertification()">📜 Richiedi certificazione</button>` : '<p>Nessuna certificazione presente.</p>'}
     </div>
   ` : `
     ${actions ? `<div class="mb-2">${actions}</div>` : ''}
@@ -2067,7 +2066,7 @@ async function renderOrganizationDetail(id) {
         </div>
         ${org.social_manager_name ? `<p class="mt-1"><strong>Responsabile servizi:</strong> ${sanitize(org.social_manager_name)} ${org.social_manager_role ? '('+sanitize(org.social_manager_role)+')' : ''}</p>` : ''}
         <div class="mt-2">
-          <button class="btn btn-secondary btn-sm" onclick="navigate('organization-edit','${id}')">✏️ Modifica</button>
+          ${state.user.role === 'admin' || (['org_admin','org_operator'].includes(state.user.role) && state.user.organization?.id === id) ? `<button class="btn btn-secondary btn-sm" onclick="navigate('organization-edit','${id}')">✏️ Modifica</button>` : ''}
         </div>
       </div>
     </div>

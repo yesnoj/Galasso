@@ -8,7 +8,7 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 
 // Init DB
-const { initDb, getDb, saveToFile } = require('./src/utils/database');
+const { initDb, getDb, saveToFile } = require('./utils/database');
 
 async function seed() {
 const db_ready = await initDb();
@@ -78,14 +78,14 @@ const orgs = [
     mgr: 'Giuseppe Verdi', mgrRole: 'Coordinatore servizi sociali', status: 'active', admin: 'org1_admin'
   },
   {
-    id: id(), name: 'Fattoria Sociale Il Vigneto', lf: 'azienda_agricola', tc: 'FTVILV987654321',
+    id: id(), name: 'Fattoria Sociale Il Vigneto', lf: 'impresa_agricola', tc: 'FTVILV987654321',
     vat: '09876543210', addr: 'Strada Provinciale 28', city: 'Parma', prov: 'PR', region: 'Emilia-Romagna',
     lat: 44.8015, lng: 10.3279, email: 'info@ilvigneto.it', web: 'www.ilvigneto.it', phone: '+39 0521 234567',
     desc: 'Azienda agricola con vigneto biologico che offre percorsi di inserimento lavorativo e coterapia con animali per persone con disabilità e disagio psichico.',
     mgr: 'Maria Conti', mgrRole: 'Responsabile attività sociali', status: 'active', admin: 'org2_admin'
   },
   {
-    id: id(), name: 'Associazione Campo Sociale', lf: 'associazione', tc: 'ASSCSO112233445',
+    id: id(), name: 'Associazione Campo Sociale', lf: 'impresa_agricola', tc: 'ASSCSO112233445',
     vat: '11223344556', addr: 'Via della Resistenza 42', city: 'Modena', prov: 'MO', region: 'Emilia-Romagna',
     lat: 44.6471, lng: 10.9252, email: 'info@camposociale.it', web: 'www.camposociale.it', phone: '+39 059 345678',
     desc: 'Associazione che promuove attività educative e socio-ricreative in ambiente agricolo per minori, giovani e famiglie in situazione di disagio.',

@@ -24,6 +24,12 @@ router.get('/', optionalAuth, (req, res) => {
       params.push(status);
     }
 
+    // org_admin e org_operator vedono solo la propria organizzazione
+    if (req.user && ['org_admin', 'org_operator'].includes(req.user.role)) {
+      where.push('o.admin_user_id = ?');
+      params.push(req.user.id);
+    }
+
     if (region) { where.push('o.region = ?'); params.push(region); }
     if (province) { where.push('o.province = ?'); params.push(province); }
     if (city) { where.push('o.city = ?'); params.push(city); }
