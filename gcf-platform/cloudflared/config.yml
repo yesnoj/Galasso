@@ -1,0 +1,5 @@
+tunnel: 43165c08-c42d-4ecf-a6bd-0b0f6aa28dff
+ingress:
+  - hostname: gcf.aicare.it
+    service: http://gcf-app:3000
+  - service: http_status:404

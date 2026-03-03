@@ -188,7 +188,7 @@ const DATA = {
       { name: 'Elimina documenti', type: 'delete', detail: 'Rimuovi documenti durante la revisione.', steps: ['Clicca 🗑️ sul documento', 'Conferma eliminazione'] },
       { name: 'Carica documenti', type: 'create', detail: 'Carica PDF aggiuntivi durante la revisione.', steps: ['Clicca 📎 Carica documento', 'Seleziona file PDF (max 10MB)', 'Upload automatico'] },
       { name: 'Pianifica audit', type: 'create', detail: 'Crea un audit e assegnalo a un auditor. L\'admin NON compila la checklist.', steps: ['Dalla certificazione con documenti approvati', 'Clicca "Pianifica audit"', 'Seleziona auditor, tipo, modalità, data', 'Conferma → l\'auditor troverà l\'audit nel suo pannello'] },
-      { name: 'Rilascia certificato', type: 'action', detail: 'Rilascio consentito SOLO se tutti i 14 requisiti dell\'ultimo audit sono CONFORMI (C). Se ci sono PC o NC, l\'organizzazione deve fare azioni correttive e sarà pianificato un nuovo audit.', steps: ['Dopo audit completato', 'Se tutti 14 requisiti C → banner verde "Audit superato" → 🏆 Rilascia certificato', 'Se ≥1 PC o NC → banner rosso → 📋 Pianifica nuovo audit oppure ❌ Respingi', 'Certificato generato con scadenza 3 anni', 'Organizzazione diventa automaticamente "Attiva"'] },
+      { name: 'Rilascia certificato', type: 'action', detail: 'Rilascio consentito SOLO se tutti i 10 requisiti dell\'ultimo audit sono CONFORMI (C). Se ci sono PC o NC, l\'organizzazione deve fare azioni correttive e sarà pianificato un nuovo audit.', steps: ['Dopo audit completato', 'Se tutti 10 requisiti C → banner verde "Audit superato" → 🏆 Rilascia certificato', 'Se ≥1 PC o NC → banner rosso → 📋 Pianifica nuovo audit oppure ❌ Respingi', 'Certificato generato con scadenza 3 anni', 'Organizzazione diventa automaticamente "Attiva"'] },
       { name: 'Scarica Certificato PDF', type: 'download', detail: 'Scarica il certificato ufficiale in PDF.' },
     ]},
     { section: '✅ Audit', actions: [
@@ -226,7 +226,7 @@ const DATA = {
       { name: 'Messaggi errore dettagliati', type: 'read', detail: 'Tutti gli errori mostrano il problema specifico invece di messaggi generici.', steps: ['"Codice fiscale già presente" → C.F. duplicato', '"Partita IVA già presente" → P.IVA duplicata', '"Email già registrata" → email utente esistente', '"Campo obbligatorio mancante" → dettaglio campo'] },
       { name: 'Versione mobile responsive', type: 'read', detail: 'Layout completamente ottimizzato per smartphone. Tabelle trasformate in card, modal a larghezza piena, dropdown leggibili (16px), bottoni touch-friendly (44px min).', steps: ['Tabelle → card layout con etichette (12 tabelle convertite)', 'Sidebar → overlay con backdrop scuro, auto-close', 'Form → colonna singola, font 16px (no auto-zoom iOS)', 'Select/dropdown → 16px !important, min-height 44px', 'Prefisso telefono → flex-wrap per schermi piccoli', 'Bottoni → min-height 44px (standard Apple touch target)'] },
       { name: 'Backup e ripristino', type: 'action', detail: 'Backup completo (database + documenti PDF) in un file .zip. Ripristino da .zip o .sqlite con validazione e copia di sicurezza automatica.', steps: ['Dashboard Admin → card Manutenzione → "💾 Scarica backup" (.zip con db + PDF)', '"📂 Ripristina backup" → seleziona .zip (completo) o .sqlite (solo db)', 'Validazione automatica del file prima del ripristino', 'Copia di sicurezza del database corrente prima della sovrascrittura', 'Backup automatico notturno sul NAS (cron alle 3:30, ultimi 30 conservati)'] },
-      { name: 'Accesso remoto', type: 'navigate', detail: 'Accesso alla piattaforma da fuori la rete locale tramite tunnel Cloudflare sicuro (HTTPS).', steps: ['URL permanente: https://gcf.aicare.it', 'Funziona da qualsiasi dispositivo con internet', 'Accesso diretto senza pagine intermedie', 'Container Cloudflare Tunnel dedicato sul NAS, sempre attivo'] },
+      { name: 'Accesso remoto', type: 'navigate', detail: 'Accesso alla piattaforma da fuori la rete locale tramite tunnel ngrok sicuro (HTTPS).', steps: ['URL permanente: https://paleethnological-lilia-promarriage.ngrok-free.dev', 'Funziona da qualsiasi dispositivo con internet', 'Prima volta: clicca "Visit Site" sulla pagina ngrok', 'Container ngrok dedicato sul NAS, sempre attivo'] },
     ]},
   ],
 
@@ -236,7 +236,7 @@ const DATA = {
     ]},
     { section: '✅ Audit (funzione esclusiva)', actions: [
       { name: 'I miei audit', type: 'read', detail: 'Lista degli audit assegnati con stato e scadenze. Badge rosso nel menu indica audit da completare.' },
-      { name: 'Compila checklist', type: 'update', detail: 'Funzione ESCLUSIVA dell\'auditor. Intestazione con nome auditor, organizzazione, tipo/modalità, contatori C/PC/NC/NA. 14 requisiti, 5 aree. Valutazioni C/PC/NC/NA con note ed evidenze.', steps: ['Clicca "Checklist" sull\'audit assegnato', 'Verifica intestazione con il tuo nome come auditor', 'Valuta ogni requisito: C / PC / NC / NA', 'Spunta evidenze verificate (checkbox)', 'Inserisci note per ogni requisito', 'Salva progressi con "💾 Salva valutazioni"', 'Completa audit → inserisci nome rappresentante org.', 'Esito calcolato automaticamente', '"← Torna alla lista audit" per tornare indietro'] },
+      { name: 'Compila checklist', type: 'update', detail: 'Funzione ESCLUSIVA dell\'auditor. Intestazione con nome auditor, organizzazione, tipo/modalità, contatori C/PC/NC/NA. 10 requisiti, 5 aree. Valutazioni C/PC/NC/NA con note ed evidenze.', steps: ['Clicca "Checklist" sull\'audit assegnato', 'Verifica intestazione con il tuo nome come auditor', 'Valuta ogni requisito: C / PC / NC / NA', 'Spunta evidenze verificate (checkbox)', 'Inserisci note per ogni requisito', 'Salva progressi con "💾 Salva valutazioni"', 'Completa audit → inserisci nome rappresentante org.', 'Esito calcolato automaticamente', '"← Torna alla lista audit" per tornare indietro'] },
       { name: 'Scarica Report PDF', type: 'download', detail: 'Report completo dell\'audit in PDF.' },
     ]},
     { section: '🗂️ Altro', actions: [
@@ -314,7 +314,7 @@ const CERT_FLOW = [
   { label: 'REVISIONE DOC.', actor: 'Admin', detail: 'L\'admin scarica e verifica i documenti allegati' },
   { label: 'DOC. APPROVATI', actor: 'Admin', detail: 'I documenti sono conformi e completi' },
   { label: 'AUDIT CREATO', actor: 'Admin', detail: 'L\'admin crea l\'audit e lo assegna a un auditor (l\'admin NON compila)' },
-  { label: 'CHECKLIST COMPILATA', actor: 'Auditor', detail: 'L\'auditor (unico abilitato) compila la checklist SNM-AS con i 14 requisiti (5 aree)' },
+  { label: 'CHECKLIST COMPILATA', actor: 'Auditor', detail: 'L\'auditor (unico abilitato) compila la checklist con i 10 requisiti' },
   { label: 'APPROVATA', actor: 'Admin', detail: 'L\'admin visualizza l\'esito (sola lettura) e approva la certificazione' },
   { label: 'RILASCIATA', actor: 'Admin', detail: 'Certificato rilasciato con numero e scadenza 3 anni. Card "Certificazioni per stato" cliccabile in Dashboard' },
 ];

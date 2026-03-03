@@ -965,10 +965,10 @@ async function renderCertificationDetail(id) {
     if (cert.status === 'audit_completed' && cert.audits && cert.audits.length > 0) {
       const lastAudit = cert.audits.find(a => a.status === 'completed');
       if (lastAudit && lastAudit.outcome === 'conforming') {
-        // Tutti i 10 requisiti conformi → può rilasciare
+        // Tutti i 14 requisiti conformi → può rilasciare
         actionsHtml = `
           <div class="alert" style="background:#e8f5e9;border-left:4px solid #2e7d32;padding:12px;margin-top:12px">
-            <strong>✅ Audit superato:</strong> tutti i 10 requisiti risultano conformi. È possibile rilasciare il certificato.
+            <strong>✅ Audit superato:</strong> tutti i 14 requisiti risultano conformi. È possibile rilasciare il certificato.
           </div>
           <div class="mt-2">
             <button class="btn btn-primary btn-sm" onclick="updateCertStatus('${id}', 'issued')">🏆 Rilascia certificato</button>

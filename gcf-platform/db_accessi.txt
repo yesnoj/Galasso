@@ -1,0 +1,22 @@
+✅ Database popolato con successo!
+
+📊 Riepilogo:
+   👤 13 utenti
+   🏠 5 organizzazioni (3 attive, 2 in attesa)
+   📜 5 certificazioni (2 rilasciate, 1 audit completato, 1 inviata, 1 in revisione)
+   ✅ 5 audit (3 completati, 2 pianificati)
+   👥 12 beneficiari
+   📋 ~214 attività
+   ⭐ 9 recensioni (6 pubblicate, 3 da moderare)
+   🔧 3 azioni correttive aperte
+
+🔑 Credenziali di accesso:
+   Admin:      admin@gcf.it / admin123
+   Auditor 1:  luca.bianchi@gcf.it / auditor123
+   Auditor 2:  anna.moretti@gcf.it / auditor123
+   Org Admin:  giuseppe.verdi@terrabuona.it / org12345
+   Org Admin:  maria.conti@ilvigneto.it / org12345
+   Operatore:  chiara.esposito@terrabuona.it / oper1234
+   Ente Ref:   silvia.gallo@csmpiacenza.it / ente1234
+   Pubblico:   giovanna.marino@gmail.com / user1234
+💾 Database salvato su disco.

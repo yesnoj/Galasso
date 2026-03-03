@@ -1,7 +1,3 @@
-# Docker Compose - GCF Platform per QNAP TS-253A
-# Utilizzo: docker-compose up -d
-# Accesso: http://IP-NAS:3000
-
 version: '3.8'
 
 services:
@@ -12,7 +8,6 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      # Persistenza dati - questi sopravvivono al riavvio del container
       - gcf-data:/app/db
       - gcf-uploads:/app/uploads
     environment:
@@ -21,7 +16,6 @@ services:
       - JWT_SECRET=${JWT_SECRET:-gcf-aicare-secret-cambiami-2026}
       - DB_PATH=/app/db/gcf.sqlite
       - UPLOAD_DIR=/app/uploads
-    # Limiti risorse per QNAP TS-253A (Celeron N3150, 4GB RAM)
     deploy:
       resources:
         limits:
@@ -35,6 +29,26 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: gcf-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --protocol http2 run --token eyJhIjoiMGM3MmJiMGJjN2RjMWY4Y2ExMzRkNTBlYjE4ZmY1NjgiLCJ0IjoiNDMxNjVjMDgtYzQyZC00ZWNmLWE2YmQtMGIwZjZhYTI4ZGZmIiwicyI6Ik5EYzVaV1ZqTm1ZdFpqQmtaQzAwT1dJM0xUbGtZV0l0T1ROaFlURTJNRE00TnpFeSJ9
+    volumes:
+      - ./cloudflared/config.yml:/etc/cloudflared/config.yml
+    depends_on:
+      - gcf-app
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
 
 volumes:
   gcf-data:

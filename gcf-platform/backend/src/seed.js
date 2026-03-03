@@ -8,7 +8,7 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 
 // Init DB
-const { initDb, getDb, saveToFile } = require('./src/utils/database');
+const { initDb, getDb, saveToFile } = require('./utils/database');
 
 async function seed() {
 const db_ready = await initDb();
