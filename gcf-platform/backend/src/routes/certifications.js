@@ -273,7 +273,7 @@ router.get('/:id/certificate-pdf', authenticate, (req, res) => {
 
     // === DICHIARAZIONE ===
     doc.fontSize(10).fillColor('#333333').text(
-      'AICARE certifica che l\'organizzazione sopra indicata è conforme allo standard AICARE-GCF-STD-01 v1.0 "Green Care Farm Certificata — AICARE" per la qualità dei servizi di agricoltura sociale.',
+      'AICARE certifica che l\'organizzazione sopra indicata è conforme allo standard SNM-AS v1.0 "Green Care Farm Certificata — AICARE" per la qualità dei servizi di agricoltura sociale.',
       80, doc.y, { width: contentW, align: 'justify', lineGap: 4 }
     );
     doc.moveDown(1);

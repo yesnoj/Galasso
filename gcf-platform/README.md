@@ -1,6 +1,6 @@
 # 🌿 GCF Platform — Green Care Farm Certificata AICARE
 
-Piattaforma web per la gestione del ciclo completo di certificazione delle organizzazioni che erogano servizi di **agricoltura sociale** in Italia, secondo lo standard **AICARE-GCF-STD-01 v1.0**.
+Piattaforma web per la gestione del ciclo completo di certificazione delle organizzazioni che erogano servizi di **agricoltura sociale** in Italia, secondo lo standard **SNM-AS v1.0** (Standard Nazionale Minimo — Agricoltura Sociale).
 
 ![Node.js](https://img.shields.io/badge/Node.js-20_Alpine-339933?logo=node.js)
 ![Express](https://img.shields.io/badge/Express-4.18-000000?logo=express)
@@ -316,16 +316,11 @@ ipconfig getifaddr en0
 
 ### Accesso remoto (fuori dalla LAN)
 
-Per accedere alla piattaforma da fuori la rete locale:
+La piattaforma è accessibile pubblicamente tramite Cloudflare Tunnel:
 
-- **Tunnel sicuro (consigliato):** Cloudflare Tunnel o ngrok creano un URL pubblico HTTPS senza modificare il router
-- **Port forwarding:** Aprire la porta 3000 sul router verso 192.168.1.111 — richiede configurazione HTTPS
-
-```bash
-# Esempio con ngrok (installare ngrok sul NAS o sul Mac)
-ngrok http 192.168.1.111:3000
-# → https://abc123.ngrok-free.app (URL pubblico temporaneo)
-```
+- **URL pubblico:** `https://gcf.aicare.it`
+- **Tunnel:** Container `gcf-cloudflared` dedicato, sempre attivo
+- **Funzionalità:** HTTPS automatico, DDoS protection, nessun limite connessioni, nessun port forwarding necessario
 
 ### Health check
 
@@ -628,11 +623,11 @@ docker exec gcf-platform node /app/seed.js
 
 | Documento | Codice | Descrizione |
 |-----------|--------|-------------|
-| **Standard** | AICARE-GCF-STD-01 v1.0 | Requisiti minimi per la certificazione |
-| **Checklist Audit** | AICARE-GCF-AUD-01 v1.0 | Modulo di verifica per l'auditor |
+| **Standard** | SNM-AS v1.0 | Requisiti minimi per la certificazione (14 requisiti, 5 aree) |
+| **Checklist Audit** | SNM-AS-AUD-01 v1.0 | Modulo di verifica per l'auditor |
 | **Certificato** | AICARE-GCF-CERT-01 v1.0 | Template certificato di conformità |
 | **Registro** | AICARE-GCF-REG-01 v1.0 | Registro ufficiale organizzazioni certificate |
-| **Guida Operativa** | v5.0 | Manuale utente completo (30+ pagine) |
+| **Guida Operativa** | v9.0 | Manuale utente completo (30+ pagine) |
 | **Diagramma Ruoli** | HTML interattivo | Mappa interattiva azioni per ruolo |
 | **Schema Flusso** | — | Schema esemplificativo servizi agricoltura sociale |
 
