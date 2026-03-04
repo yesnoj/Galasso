@@ -80,25 +80,29 @@ router.get('/stats', (req, res) => {
     const db = getDb();
     
     const stats = {
-      totalCertified: db.prepare("SELECT COUNT(*) as n FROM organizations WHERE status = 'active'").get().n,
+      totalCertified: db.prepare("SELECT COUNT(DISTINCT o.id) as n FROM organizations o JOIN certifications c ON c.organization_id = o.id AND c.status = 'issued' WHERE o.status = 'active'").get().n,
       totalCertifications: db.prepare("SELECT COUNT(*) as n FROM certifications WHERE status = 'issued'").get().n,
       totalBeneficiaries: db.prepare("SELECT COUNT(*) as n FROM beneficiaries WHERE status = 'active'").get().n,
       totalActivities: db.prepare("SELECT COUNT(*) as n FROM activity_logs").get().n,
       byRegion: db.prepare(`
         SELECT o.region, COUNT(*) as count 
-        FROM organizations o WHERE o.status = 'active' 
+        FROM organizations o 
+        JOIN certifications c ON c.organization_id = o.id AND c.status = 'issued'
+        WHERE o.status = 'active' 
         GROUP BY o.region ORDER BY count DESC
       `).all(),
       byServiceType: db.prepare(`
         SELECT os.service_type, COUNT(DISTINCT os.organization_id) as count
         FROM organization_services os
         JOIN organizations o ON os.organization_id = o.id AND o.status = 'active'
+        JOIN certifications c ON c.organization_id = o.id AND c.status = 'issued'
         GROUP BY os.service_type ORDER BY count DESC
       `).all(),
       byTargetType: db.prepare(`
         SELECT ot.target_type, COUNT(DISTINCT ot.organization_id) as count
         FROM organization_target_users ot
         JOIN organizations o ON ot.organization_id = o.id AND o.status = 'active'
+        JOIN certifications c ON c.organization_id = o.id AND c.status = 'issued'
         GROUP BY ot.target_type ORDER BY count DESC
       `).all()
     };

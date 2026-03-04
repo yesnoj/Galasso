@@ -1376,13 +1376,13 @@ async function renderAuditChecklist(auditId) {
   renderLayout('Checklist di Audit', '<div class="loading"><div class="spinner"></div><p>Caricamento checklist...</p></div>');
   
   if (!auditId) {
-    $('#page-content').innerHTML = '<div class="alert alert-danger">ID audit mancante. <button class="btn btn-secondary btn-sm" onclick="navigate(\'audits\')">← Torna agli audit</button></div>';
+    $('#page-content').innerHTML = '<div class="alert alert-danger">ID audit mancante. <button class="btn btn-secondary btn-sm" onclick="history.back()">← Torna indietro</button></div>';
     return;
   }
 
   const audit = await api(`/audits/${auditId}`);
   if (!audit) {
-    $('#page-content').innerHTML = '<div class="alert alert-danger">Errore nel caricamento dell\'audit. L\'audit potrebbe non esistere o non essere accessibile. <button class="btn btn-secondary btn-sm mt-1" onclick="navigate(\'audits\')">← Torna agli audit</button></div>';
+    $('#page-content').innerHTML = '<div class="alert alert-danger">Errore nel caricamento dell\'audit. L\'audit potrebbe non esistere o non essere accessibile. <button class="btn btn-secondary btn-sm mt-1" onclick="history.back()">← Torna indietro</button></div>';
     return;
   }
 
@@ -1399,9 +1399,13 @@ async function renderAuditChecklist(auditId) {
     areas[areaNum].requirements.push(ev);
   });
 
+  const backBtn = ['admin','auditor'].includes(state.user.role) 
+    ? `<button class="btn btn-secondary btn-sm" onclick="navigate('audits')">← Torna alla lista audit</button>`
+    : `<button class="btn btn-secondary btn-sm" onclick="navigate('certification-detail','${audit.certification_id}')">← Torna alla certificazione</button>`;
+
   let html = `
     <div style="margin-bottom:12px">
-      <button class="btn btn-secondary btn-sm" onclick="navigate('audits')">← Torna alla lista audit</button>
+      ${backBtn}
     </div>
     ${!isAuditor ? '<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:14px;color:#856404">🔒 Modalità sola lettura — Solo l\'auditor assegnato può compilare la checklist</div>' : ''}
     <div class="card mb-2">
