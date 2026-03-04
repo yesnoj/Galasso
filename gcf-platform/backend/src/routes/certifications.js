@@ -332,7 +332,7 @@ function formatDatePdf(dateStr) {
 }
 
 // POST /api/certifications/:id/documents - Upload documento PDF
-router.post('/:id/documents', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
+router.post('/:id/documents', authenticate, authorize('org_admin', 'org_operator'), (req, res) => {
   upload.single('file')(req, res, (err) => {
     if (err) {
       if (err.message === 'Solo file PDF ammessi') return res.status(400).json({ error: err.message });

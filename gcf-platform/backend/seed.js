@@ -36,7 +36,7 @@ const tables = [
   'monitoring_reports', 'activity_logs', 'individual_projects',
   'corrective_actions', 'audit_evaluations', 'audit_attachments', 'audits',
   'certification_documents', 'certifications',
-  'organization_partners', 'organization_images', 'organization_target_users', 'organization_services',
+  'organization_documents', 'organization_partners', 'organization_images', 'organization_target_users', 'organization_services',
   'beneficiaries', 'organizations', 'refresh_tokens', 'users'
 ];
 tables.forEach(t => { try { db.prepare(`DELETE FROM ${t}`).run(); } catch(e) {} });
@@ -69,6 +69,7 @@ Object.values(users).forEach(u => {
 console.log('🏠 Creazione organizzazioni...');
 
 // ===== ORGANIZATIONS =====
+// Forme giuridiche: solo impresa_agricola e cooperativa_sociale
 const orgs = [
   {
     id: id(), name: 'Cooperativa Terra Buona', lf: 'cooperativa_sociale', tc: 'COPTB0001234567',
@@ -81,14 +82,14 @@ const orgs = [
     id: id(), name: 'Fattoria Sociale Il Vigneto', lf: 'impresa_agricola', tc: 'FTVILV987654321',
     vat: '09876543210', addr: 'Strada Provinciale 28', city: 'Parma', prov: 'PR', region: 'Emilia-Romagna',
     lat: 44.8015, lng: 10.3279, email: 'info@ilvigneto.it', web: 'www.ilvigneto.it', phone: '+39 0521 234567',
-    desc: 'Azienda agricola con vigneto biologico che offre percorsi di inserimento lavorativo e coterapia con animali per persone con disabilità e disagio psichico.',
+    desc: 'Impresa agricola con vigneto biologico che offre percorsi di inserimento lavorativo e coterapia con animali per persone con disabilità e disagio psichico.',
     mgr: 'Maria Conti', mgrRole: 'Responsabile attività sociali', status: 'active', admin: 'org2_admin'
   },
   {
     id: id(), name: 'Associazione Campo Sociale', lf: 'impresa_agricola', tc: 'ASSCSO112233445',
     vat: '11223344556', addr: 'Via della Resistenza 42', city: 'Modena', prov: 'MO', region: 'Emilia-Romagna',
     lat: 44.6471, lng: 10.9252, email: 'info@camposociale.it', web: 'www.camposociale.it', phone: '+39 059 345678',
-    desc: 'Associazione che promuove attività educative e socio-ricreative in ambiente agricolo per minori, giovani e famiglie in situazione di disagio.',
+    desc: 'Impresa agricola che promuove attività educative e socio-ricreative in ambiente agricolo per minori, giovani e famiglie in situazione di disagio.',
     mgr: 'Paolo Ferrara', mgrRole: 'Presidente', status: 'active', admin: 'org3_admin'
   },
   {
@@ -130,25 +131,24 @@ const insertTgt = db.prepare('INSERT INTO organization_target_users (id, organiz
 [['educativa', 'Doposcuola in fattoria'], ['socio_ricreativa', 'Campus estivi e weekend'], ['coterapia_piante', 'Orti didattici']].forEach(([t, d]) => insertSvc.run(id(), orgs[2].id, t, d));
 [['minori', 'Bambini e adolescenti 6-17 anni'], ['giovani', 'NEET e giovani in difficoltà'], ['immigrati', 'Famiglie straniere in percorso di integrazione']].forEach(([t, n]) => insertTgt.run(id(), orgs[2].id, t, n));
 
-// Org 4 — Fattoria della Speranza
+// Org 4 — Fattoria della Speranza (pending — nessuna cert, ma ha servizi configurati)
 [['coterapia_animali', 'Pet therapy con cani e cavalli'], ['inserimento_lavorativo', 'Percorsi per detenuti in art. 21'], ['socio_ricreativa', 'Attività agricole di gruppo']].forEach(([t, d]) => insertSvc.run(id(), orgs[3].id, t, d));
 [['dipendenze', 'Tossicodipendenze e alcol'], ['detenuti', 'Detenuti in misura alternativa'], ['disagio_adulti', 'Adulti senza fissa dimora']].forEach(([t, n]) => insertTgt.run(id(), orgs[3].id, t, n));
 
-// Org 5 — Orto Sociale Bologna
+// Org 5 — Orto Sociale Bologna (pending — nessuna cert)
 [['coterapia_piante', 'Orti terapeutici urbani'], ['formazione', 'Formazione orticoltura per operatori'], ['socio_ricreativa', 'Attività in giardino condiviso']].forEach(([t, d]) => insertSvc.run(id(), orgs[4].id, t, d));
 [['salute_mentale', 'Percorsi DSM Bologna'], ['anziani', 'Anziani in RSA e centri diurni'], ['disagio_adulti', 'Adulti con grave disagio socio-economico']].forEach(([t, n]) => insertTgt.run(id(), orgs[4].id, t, n));
 
 console.log('📜 Creazione certificazioni...');
 
 // ===== CERTIFICATIONS =====
+// Solo le 3 org attive hanno certificazioni. Le 2 pending non ne hanno (coerente: devono prima essere attivate).
 const insertCert = db.prepare(`INSERT INTO certifications (id, organization_id, cert_number, status, application_date, doc_review_date, doc_reviewer_id, issue_date, expiry_date, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
 const certs = [
-  { id: id(), orgIdx: 0, num: 'GCF-2025-001', status: 'issued', appDate: date(180), reviewDate: date(170), issueDate: date(120), expiryDate: date(-975), notes: 'Certificazione rilasciata dopo audit positivo' },
+  { id: id(), orgIdx: 0, num: 'GCF-2025-001', status: 'issued', appDate: date(180), reviewDate: date(170), issueDate: date(120), expiryDate: date(-975), notes: 'Certificazione rilasciata — piena conformità su tutti i 14 requisiti' },
   { id: id(), orgIdx: 1, num: 'GCF-2025-002', status: 'issued', appDate: date(150), reviewDate: date(140), issueDate: date(90), expiryDate: date(-1005), notes: 'Eccellente conformità riscontrata' },
   { id: id(), orgIdx: 2, num: 'GCF-2026-003', status: 'audit_completed', appDate: date(60), reviewDate: date(50), issueDate: null, expiryDate: null, notes: 'In attesa di decisione finale dopo audit' },
-  { id: id(), orgIdx: 3, num: null, status: 'submitted', appDate: date(10), reviewDate: null, issueDate: null, expiryDate: null, notes: 'Domanda appena inviata' },
-  { id: id(), orgIdx: 4, num: null, status: 'doc_review', appDate: date(20), reviewDate: date(5), issueDate: null, expiryDate: null, notes: 'Documenti in fase di revisione' },
 ];
 
 certs.forEach(c => {
@@ -157,15 +157,13 @@ certs.forEach(c => {
 
 console.log('✅ Creazione audit...');
 
-// ===== AUDITS (aggiornati per 14 requisiti) =====
+// ===== AUDITS — 3 completati, 0 pianificati =====
 const insertAudit = db.prepare(`INSERT INTO audits (id, certification_id, auditor_id, audit_type, audit_mode, scheduled_date, completed_date, status, total_conforming, total_partially, total_non_conforming, total_not_applicable, outcome, auditor_notes, org_representative_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
 const audits = [
-  { id: id(), certIdx: 0, auditor: 'auditor1', type: 'initial', mode: 'on_site', sched: date(130), compl: date(125), status: 'completed', c: 12, pc: 2, nc: 0, na: 0, outcome: 'conforming_with_actions', notes: 'Buona organizzazione. Requisiti 2.3 e 3.4 parzialmente conformi: politica inclusione da formalizzare e autodichiarazioni individuali da completare.', rep: 'Giuseppe Verdi' },
+  { id: id(), certIdx: 0, auditor: 'auditor1', type: 'initial', mode: 'on_site', sched: date(130), compl: date(125), status: 'completed', c: 14, pc: 0, nc: 0, na: 0, outcome: 'conforming', notes: 'Piena conformità su tutti i 14 requisiti. Organizzazione molto ben strutturata con documentazione completa e aggiornata.', rep: 'Giuseppe Verdi' },
   { id: id(), certIdx: 1, auditor: 'auditor2', type: 'initial', mode: 'on_site', sched: date(100), compl: date(95), status: 'completed', c: 14, pc: 0, nc: 0, na: 0, outcome: 'conforming', notes: 'Piena conformità su tutti i 14 requisiti. Struttura molto ben organizzata con documentazione completa.', rep: 'Maria Conti' },
   { id: id(), certIdx: 2, auditor: 'auditor1', type: 'initial', mode: 'mixed', sched: date(40), compl: date(35), status: 'completed', c: 10, pc: 2, nc: 0, na: 2, outcome: 'conforming_with_actions', notes: 'Requisiti 3.3 e 4.2 parzialmente conformi. Procedure di tutela e organigramma da completare.', rep: 'Paolo Ferrara' },
-  { id: id(), certIdx: 0, auditor: 'auditor2', type: 'surveillance', mode: 'on_site', sched: date(5), compl: null, status: 'planned', c: 0, pc: 0, nc: 0, na: 0, outcome: null, notes: null, rep: null },
-  { id: id(), certIdx: 1, auditor: 'auditor1', type: 'surveillance', mode: 'remote', sched: date(-30), compl: null, status: 'planned', c: 0, pc: 0, nc: 0, na: 0, outcome: null, notes: null, rep: null },
 ];
 
 audits.forEach(a => {
@@ -173,14 +171,12 @@ audits.forEach(a => {
 });
 
 // =====================================================
-// AUDIT EVALUATIONS — evidences_checked come JSON array
-// Standard SNM-AS — 14 requisiti
+// AUDIT EVALUATIONS — Standard SNM-AS — 14 requisiti
 // =====================================================
 console.log('📋 Creazione valutazioni audit...');
 
 const insertEval = db.prepare(`INSERT INTO audit_evaluations (id, audit_id, requirement_id, area_number, requirement_number, evaluation, evidences_checked, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
 
-// Carica i requisiti dal DB con il numero area corretto
 const requirements = db.prepare(`
   SELECT cr.*, aa.area_number 
   FROM certification_requirements cr 
@@ -189,7 +185,7 @@ const requirements = db.prepare(`
 `).all();
 
 // =====================================================
-// Audit 1: Terra Buona — 12C + 2PC (req 2.3 e 3.4 parziali)
+// Audit 1: Terra Buona — 14C (piena conformità → certificato rilasciato)
 // =====================================================
 const eval1Config = {
   '1.1': { ev: 'C', checked: ['Visura camerale', 'Fascicolo aziendale attivo', 'Codice ATECO coerente'], note: 'Cooperativa sociale regolarmente iscritta, ATECO coerente con agricoltura sociale' },
@@ -197,12 +193,12 @@ const eval1Config = {
   '1.3': { ev: 'C', checked: ['Nomina formale', 'Organigramma'], note: 'Giuseppe Verdi nominato responsabile con delibera del CdA' },
   '2.1': { ev: 'C', checked: ['Progetti individuali', 'Convenzioni'], note: 'Presenti progetti individuali per ogni beneficiario e convenzione con CSM Piacenza' },
   '2.2': { ev: 'C', checked: ['Registro attività', 'Report'], note: 'Registro attività giornaliero su piattaforma digitale, report mensili inviati al CSM' },
-  '2.3': { ev: 'PC', checked: ['Dichiarazione scritta'], note: 'Politica di inclusione presente nella mission aziendale ma non formalizzata in documento ufficiale separato' },
+  '2.3': { ev: 'C', checked: ['Dichiarazione scritta', 'Politica inclusione/non discriminazione'], note: 'Politica di inclusione formalizzata e adottata con delibera del CdA' },
   '3.1': { ev: 'C', checked: ['Titolo disponibilità locali', 'Documentazione edilizia'], note: 'Locali di proprietà con documentazione edilizia in regola' },
   '3.2': { ev: 'C', checked: ['Autocertificazione', 'Documentazione sicurezza (DVR)'], note: 'DVR aggiornato, formazione sicurezza completata per tutti gli operatori' },
   '3.3': { ev: 'C', checked: ['Procedure tutela utenti', 'Modalità operative'], note: 'Protocolli di supervisione chiari, rapporto operatore/utente adeguato (1:4)' },
-  '3.4': { ev: 'PC', checked: ['Dichiarazione assenza cause interdittive'], note: 'Dichiarazione del legale rappresentante presente, manca autodichiarazione individuale dei singoli operatori' },
-  '4.1': { ev: 'C', checked: ['Attestato formazione', 'Esperienza documentata ≥2 anni (CV, contratti/incarichi)'], note: 'Personale qualificato: 2 educatori, 1 psicologo, 1 agronomo, 3 operatori con formazione specifica e esperienza >2 anni' },
+  '3.4': { ev: 'C', checked: ['Dichiarazione assenza cause interdittive', 'Autodichiarazione assenza condanne'], note: 'Tutte le dichiarazioni raccolte dal legale rappresentante e dai singoli operatori' },
+  '4.1': { ev: 'C', checked: ['Attestato formazione', 'Esperienza documentata ≥2 anni (CV, contratti/incarichi)'], note: 'Personale qualificato: 2 educatori, 1 psicologo, 1 agronomo, 3 operatori con formazione specifica' },
   '4.2': { ev: 'C', checked: ['Organigramma', 'Mansionari', 'Descrizione ruoli'], note: 'Organigramma completo con mansionario dettagliato per ogni ruolo' },
   '5.1': { ev: 'C', checked: ['Dichiarazione firmata', 'Politica qualità'], note: 'Dichiarazione firmata dal presidente della cooperativa e dal CdA' },
   '5.2': { ev: 'C', checked: ['Registro aggiornamenti', 'Archivio documentale'], note: 'Archivio documentale organizzato e registro aggiornamenti tenuto regolarmente' },
@@ -215,7 +211,7 @@ requirements.forEach(r => {
 });
 
 // =====================================================
-// Audit 2: Il Vigneto — 14C (piena conformità)
+// Audit 2: Il Vigneto — 14C (piena conformità → certificato rilasciato)
 // =====================================================
 const eval2Config = {
   '1.1': { ev: 'C', checked: ['Visura camerale', 'Statuto/Atto costitutivo', 'Fascicolo aziendale attivo', 'Codice ATECO coerente'], note: 'Impresa agricola regolarmente iscritta con tutti i requisiti giuridici in ordine' },
@@ -241,10 +237,10 @@ requirements.forEach(r => {
 });
 
 // =====================================================
-// Audit 3: Campo Sociale — 10C + 2PC + 2NA
+// Audit 3: Campo Sociale — 10C + 2PC + 2NA (in attesa di decisione)
 // =====================================================
 const eval3Config = {
-  '1.1': { ev: 'C', checked: ['Visura camerale', 'Codice ATECO coerente'], note: 'Associazione regolarmente iscritta con ATECO compatibile' },
+  '1.1': { ev: 'C', checked: ['Visura camerale', 'Codice ATECO coerente'], note: 'Impresa agricola regolarmente iscritta con ATECO compatibile' },
   '1.2': { ev: 'C', checked: ['Descrizione servizi', 'Materiale informativo'], note: 'Servizi descritti nel sito web e nelle brochure distribuite' },
   '1.3': { ev: 'C', checked: ['Nomina formale'], note: 'Responsabile designato con verbale del consiglio direttivo' },
   '2.1': { ev: 'C', checked: ['Progetti individuali', 'Accordi con enti'], note: 'Progetti presenti, accordi con comune e ASL' },
@@ -253,7 +249,7 @@ const eval3Config = {
   '3.1': { ev: 'C', checked: ['Titolo disponibilità locali'], note: 'Locali in comodato d\'uso con contratto registrato' },
   '3.2': { ev: 'C', checked: ['Autocertificazione', 'Documentazione sicurezza (DVR)'], note: 'DVR presente ma da aggiornare entro 6 mesi' },
   '3.3': { ev: 'PC', checked: ['Modalità operative'], note: 'Procedure di tutela presenti ma non complete. Mancano protocolli scritti per la gestione emergenze con utenti fragili' },
-  '3.4': { ev: 'NA', checked: [], note: 'Associazione di volontariato — requisito valutato come non applicabile in questa configurazione' },
+  '3.4': { ev: 'NA', checked: [], note: 'Requisito valutato come non applicabile in questa configurazione organizzativa' },
   '4.1': { ev: 'C', checked: ['Attestato formazione'], note: '3 educatori professionali, 2 volontari con formazione specifica, 1 mediatore culturale' },
   '4.2': { ev: 'PC', checked: ['Organigramma'], note: 'Organigramma presente ma incompleto: mancano descrizioni dettagliate dei ruoli operativi e delle responsabilità dei volontari' },
   '5.1': { ev: 'C', checked: ['Dichiarazione firmata'], note: 'Impegno firmato dal presidente con delibera del consiglio direttivo' },
@@ -268,58 +264,57 @@ requirements.forEach(r => {
 
 console.log('👥 Creazione beneficiari...');
 
-// ===== BENEFICIARIES =====
+// ===== BENEFICIARIES (solo per le 3 org attive) =====
 const insertBen = db.prepare(`INSERT INTO beneficiaries (id, organization_id, code, target_type, referring_entity, referring_contact, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
 
 const beneficiaries = [
-  // Terra Buona (org 0)
-  { id: id(), orgIdx: 0, code: 'BEN-2025-001', tt: 'salute_mentale', ent: 'CSM Piacenza', contact: 'Dott.ssa Gallo', status: 'active' },
-  { id: id(), orgIdx: 0, code: 'BEN-2025-002', tt: 'salute_mentale', ent: 'CSM Piacenza', contact: 'Dott. Neri', status: 'active' },
-  { id: id(), orgIdx: 0, code: 'BEN-2025-003', tt: 'disabili', ent: 'Servizi Sociali Piacenza', contact: 'Dott.ssa Bruni', status: 'active' },
-  { id: id(), orgIdx: 0, code: 'BEN-2025-004', tt: 'anziani', ent: 'ASP Piacenza', contact: 'Sig.ra Pozzi', status: 'completed' },
-  // Il Vigneto (org 1)
-  { id: id(), orgIdx: 1, code: 'BEN-2025-005', tt: 'disabili', ent: 'AUSL Parma', contact: 'Dott. Riva', status: 'active' },
-  { id: id(), orgIdx: 1, code: 'BEN-2025-006', tt: 'dipendenze', ent: 'SerD Parma', contact: 'Dott.ssa Sala', status: 'active' },
-  { id: id(), orgIdx: 1, code: 'BEN-2025-007', tt: 'salute_mentale', ent: 'CSM Parma', contact: 'Dott. Fontana', status: 'active' },
-  { id: id(), orgIdx: 1, code: 'BEN-2026-008', tt: 'dipendenze', ent: 'SerD Parma', contact: 'Dott. Bassi', status: 'active' },
-  // Campo Sociale (org 2)
-  { id: id(), orgIdx: 2, code: 'BEN-2025-009', tt: 'minori', ent: 'Servizi Sociali Modena', contact: 'Dott.ssa Caruso', status: 'active' },
-  { id: id(), orgIdx: 2, code: 'BEN-2025-010', tt: 'minori', ent: 'Servizi Sociali Modena', contact: 'Dott. Greco', status: 'active' },
-  { id: id(), orgIdx: 2, code: 'BEN-2026-011', tt: 'giovani', ent: 'Centro Impiego Modena', contact: 'Sig. Pellegrini', status: 'active' },
-  { id: id(), orgIdx: 2, code: 'BEN-2026-012', tt: 'immigrati', ent: 'CPIA Modena', contact: 'Prof.ssa Hassan', status: 'active' },
+  // Org 1 — Terra Buona (5 beneficiari)
+  { id: id(), orgIdx: 0, code: 'TB-2025-001', type: 'salute_mentale', entity: 'CSM Piacenza', contact: 'Silvia Gallo', status: 'active', days: 150 },
+  { id: id(), orgIdx: 0, code: 'TB-2025-002', type: 'disabili', entity: 'AUSL Piacenza', contact: 'Dr. Bianchi', status: 'active', days: 120 },
+  { id: id(), orgIdx: 0, code: 'TB-2025-003', type: 'anziani', entity: 'Comune di Piacenza', contact: 'Ufficio Servizi Sociali', status: 'active', days: 90 },
+  { id: id(), orgIdx: 0, code: 'TB-2025-004', type: 'salute_mentale', entity: 'CSM Piacenza', contact: 'Silvia Gallo', status: 'completed', days: 200 },
+  { id: id(), orgIdx: 0, code: 'TB-2026-005', type: 'disabili', entity: 'Cooperativa Sociale Amici', contact: 'Responsabile area', status: 'active', days: 30 },
+
+  // Org 2 — Il Vigneto (4 beneficiari)
+  { id: id(), orgIdx: 1, code: 'VG-2025-001', type: 'dipendenze', entity: 'SerD Parma', contact: 'Dr.ssa Ferri', status: 'active', days: 180 },
+  { id: id(), orgIdx: 1, code: 'VG-2025-002', type: 'disabili', entity: 'AUSL Parma', contact: 'Servizio Disabilità', status: 'active', days: 140 },
+  { id: id(), orgIdx: 1, code: 'VG-2025-003', type: 'salute_mentale', entity: 'CSM Parma', contact: 'Roberto Fontana', status: 'active', days: 100 },
+  { id: id(), orgIdx: 1, code: 'VG-2025-004', type: 'dipendenze', entity: 'SerD Parma', contact: 'Dr.ssa Ferri', status: 'suspended', days: 160 },
+
+  // Org 3 — Campo Sociale (3 beneficiari)
+  { id: id(), orgIdx: 2, code: 'CS-2025-001', type: 'minori', entity: 'Comune di Modena', contact: 'Servizi Educativi', status: 'active', days: 110 },
+  { id: id(), orgIdx: 2, code: 'CS-2025-002', type: 'giovani', entity: 'Centro per l\'Impiego MO', contact: 'Orientatore', status: 'active', days: 80 },
+  { id: id(), orgIdx: 2, code: 'CS-2026-003', type: 'immigrati', entity: 'Cooperativa Mediazione', contact: 'Karim El Fassi', status: 'active', days: 45 },
 ];
 
 beneficiaries.forEach(b => {
-  insertBen.run(b.id, orgs[b.orgIdx].id, b.code, b.tt, b.ent, b.contact, b.status, datetime(60 + Math.floor(Math.random() * 90)));
+  insertBen.run(b.id, orgs[b.orgIdx].id, b.code, b.type, b.entity, b.contact, b.status, datetime(b.days));
 });
 
 console.log('📋 Creazione attività...');
 
-// ===== ACTIVITIES =====
-const insertAct = db.prepare(`INSERT INTO activity_logs (id, organization_id, beneficiary_id, activity_date, service_type, duration_minutes, description, participants_count, operator_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+// ===== ACTIVITIES (solo per le 3 org attive, ultimi 60 giorni) =====
+const insertAct = db.prepare(`INSERT INTO activity_logs (id, organization_id, beneficiary_id, activity_date, service_type, duration_minutes, description, is_group, operator_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
 const activityDescs = {
   coterapia_piante: [
-    'Semina ortaggi primaverili in serra', 'Raccolta erbe aromatiche (basilico, rosmarino, salvia)',
-    'Cura e irrigazione orto terapeutico', 'Preparazione terreno per trapianto',
-    'Potatura piante aromatiche', 'Laboratorio composizione bouquet erbe',
-    'Trapianto piantine di pomodori', 'Manutenzione aiuole fiorite',
-    'Raccolta zucchine e peperoni', 'Preparazione terreno invernale'
+    'Semina e trapianto piantine nell\'orto terapeutico', 'Raccolta erbe aromatiche e preparazione',
+    'Manutenzione aiuole e percorso sensoriale', 'Attività di potatura e cura degli alberi',
+    'Laboratorio di educazione alimentare', 'Attività di gruppo: semina e cura piantine'
   ],
   coterapia_animali: [
-    'Sessione di ippoterapia', 'Cura degli asini: pulizia e alimentazione',
-    'Attività assistita con conigli', 'Percorso sensoriale con cavalli',
-    'Pulizia e cura del pollaio', 'Passeggiata terapeutica con asini'
+    'Sessione di pet therapy con cani', 'Accudimento animali: pulizia e alimentazione',
+    'Attività in maneggio con cavalli', 'Sessione con asini: grooming e passeggiata',
+    'Cura conigli e animali da cortile', 'Attività di gruppo: interazione con animali'
   ],
   inserimento_lavorativo: [
-    'Tirocinio in vigna: gestione filari', 'Preparazione terreno orto aziendale',
-    'Confezionamento prodotti per vendita', 'Gestione magazzino e logistica',
-    'Raccolta uva per vinificazione', 'Lavorazione in cantina biologica',
-    'Manutenzione attrezzi e strutture', 'Formazione sicurezza sul lavoro'
+    'Turno in serra: semina e irrigazione', 'Confezionamento prodotti per vendita diretta',
+    'Lavoro in campo: raccolta e selezione', 'Manutenzione attrezzature agricole',
+    'Turno al punto vendita aziendale', 'Preparazione ordini per GAS e mense'
   ],
   educativa: [
-    'Doposcuola in fattoria con attività pratiche', 'Laboratorio di scienze naturali all\'aperto',
-    'Visita didattica al frutteto', 'Progetto orto didattico per bambini',
+    'Doposcuola in fattoria con compiti', 'Laboratorio scientifico: ciclo delle piante',
+    'Visita guidata con classe della scuola', 'Attività ludico-educativa all\'aria aperta',
     'Laboratorio di educazione alimentare', 'Attività di gruppo: semina e cura piantine'
   ],
   socio_ricreativa: [
@@ -363,7 +358,7 @@ for (let dayOffset = 1; dayOffset <= 60; dayOffset++) {
 
 console.log('⭐ Creazione recensioni...');
 
-// ===== REVIEWS =====
+// ===== REVIEWS (solo per le 3 org attive) =====
 const insertReview = db.prepare(`INSERT INTO reviews (id, organization_id, author_name, author_role, rating, comment, is_published, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
 
 const reviews = [
@@ -388,23 +383,22 @@ console.log('📢 Creazione notifiche...');
 const insertNotif = db.prepare(`INSERT INTO notifications (id, user_id, type, title, message, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`);
 
 [
-  { userId: users.admin.id, type: 'certification', title: 'Nuova domanda di certificazione', msg: 'Fattoria della Speranza ha inviato una domanda di certificazione', read: 0, days: 10 },
-  { userId: users.admin.id, type: 'certification', title: 'Documenti in revisione', msg: 'Orto Sociale Bologna — documenti caricati in attesa di revisione', read: 0, days: 5 },
   { userId: users.admin.id, type: 'review', title: 'Nuova recensione da moderare', msg: '3 recensioni in attesa di approvazione', read: 0, days: 1 },
-  { userId: users.auditor1.id, type: 'audit', title: 'Audit di sorveglianza programmato', msg: 'Audit di sorveglianza per Cooperativa Terra Buona previsto tra 5 giorni', read: 0, days: 3 },
-  { userId: users.auditor1.id, type: 'audit', title: 'Audit pianificato', msg: 'Audit di sorveglianza per Fattoria Sociale Il Vigneto programmato per marzo', read: 1, days: 15 },
-  { userId: users.org1_admin.id, type: 'certification', title: 'Sorveglianza in arrivo', msg: 'Un audit di sorveglianza è stato pianificato per la vostra organizzazione', read: 0, days: 5 },
+  { userId: users.admin.id, type: 'certification', title: 'Audit completato', msg: 'Associazione Campo Sociale — audit completato, in attesa di decisione finale', read: 0, days: 2 },
+  { userId: users.admin.id, type: 'organization', title: 'Nuove organizzazioni in attesa', msg: '2 organizzazioni in attesa di verifica documenti e attivazione', read: 0, days: 3 },
+  { userId: users.auditor1.id, type: 'audit', title: 'Audit completato', msg: 'Audit per Associazione Campo Sociale completato con esito conforme con azioni correttive', read: 1, days: 30 },
+  { userId: users.org3_admin.id, type: 'certification', title: 'Audit completato', msg: 'L\'audit per la vostra organizzazione è stato completato. In attesa di decisione finale.', read: 0, days: 2 },
+  { userId: users.org4_admin.id, type: 'organization', title: 'Organizzazione in attesa', msg: 'La tua organizzazione è in attesa di verifica da parte di AICARE.', read: 0, days: 5 },
+  { userId: users.org5_admin.id, type: 'organization', title: 'Organizzazione in attesa', msg: 'La tua organizzazione è in attesa di verifica da parte di AICARE.', read: 0, days: 3 },
 ].forEach(n => {
   insertNotif.run(id(), n.userId, n.type, n.title, n.msg, n.read, datetime(n.days));
 });
 
 console.log('🔧 Creazione azioni correttive...');
 
-// ===== CORRECTIVE ACTIONS =====
+// ===== CORRECTIVE ACTIONS (solo per audit 3 — Campo Sociale con 2 PC) =====
 const insertCA = db.prepare(`INSERT INTO corrective_actions (id, audit_id, evaluation_id, description, action_required, deadline, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
 
-insertCA.run(id(), audits[0].id, null, 'Politica di inclusione non formalizzata in documento ufficiale', 'Redigere e pubblicare una politica formale di inclusione, non discriminazione e rispetto della dignità', date(-30), 'open', datetime(120));
-insertCA.run(id(), audits[0].id, null, 'Autodichiarazione assenza condanne mancante per i singoli operatori', 'Raccogliere le autodichiarazioni individuali di assenza condanne da tutti gli operatori coinvolti', date(-30), 'open', datetime(120));
 insertCA.run(id(), audits[2].id, null, 'Procedure di tutela esistenti ma non aggiornate alla normativa vigente', 'Aggiornare le procedure di tutela e supervisione in conformità alla normativa corrente', date(-15), 'open', datetime(30));
 insertCA.run(id(), audits[2].id, null, 'Organigramma incompleto, mancano descrizioni dei ruoli operativi', 'Completare l\'organigramma con tutti i ruoli e le relative responsabilità', date(-15), 'in_progress', datetime(30));
 
@@ -414,12 +408,12 @@ console.log('');
 console.log('📊 Riepilogo:');
 console.log(`   👤 ${Object.keys(users).length} utenti`);
 console.log(`   🏠 ${orgs.length} organizzazioni (3 attive, 2 in attesa)`);
-console.log(`   📜 ${certs.length} certificazioni (2 rilasciate, 1 audit completato, 1 inviata, 1 in revisione)`);
-console.log(`   ✅ ${audits.length} audit (3 completati, 2 pianificati)`);
+console.log(`   📜 ${certs.length} certificazioni (2 rilasciate, 1 audit completato)`);
+console.log(`   ✅ ${audits.length} audit (3 completati)`);
 console.log(`   👥 ${beneficiaries.length} beneficiari`);
 console.log(`   📋 ~${db.prepare('SELECT COUNT(*) as n FROM activity_logs').get().n} attività`);
 console.log(`   ⭐ ${reviews.length} recensioni (6 pubblicate, 3 da moderare)`);
-console.log(`   🔧 4 azioni correttive aperte`);
+console.log(`   🔧 2 azioni correttive (Campo Sociale)`);
 console.log('');
 console.log('🔑 Credenziali di accesso:');
 console.log('   Admin:      admin@gcf.it / admin123');
@@ -427,6 +421,7 @@ console.log('   Auditor 1:  luca.bianchi@gcf.it / auditor123');
 console.log('   Auditor 2:  anna.moretti@gcf.it / auditor123');
 console.log('   Org Admin:  giuseppe.verdi@terrabuona.it / org12345');
 console.log('   Org Admin:  maria.conti@ilvigneto.it / org12345');
+console.log('   Org Admin:  paolo.ferrara@camposociale.it / org12345');
 console.log('   Operatore:  chiara.esposito@terrabuona.it / oper1234');
 console.log('   Ente Ref:   silvia.gallo@csmpiacenza.it / ente1234');
 console.log('   Pubblico:   giovanna.marino@gmail.com / user1234');

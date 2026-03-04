@@ -152,9 +152,9 @@ router.get('/me', authenticate, (req, res) => {
     FROM users WHERE id = ?
   `).get(req.user.id);
   
-  // Se è org_admin, includi info organizzazione
+  // Se è org_admin o org_operator, includi info organizzazione
   let organization = null;
-  if (user.role === 'org_admin') {
+  if (user.role === 'org_admin' || user.role === 'org_operator') {
     organization = db.prepare('SELECT id, name, status FROM organizations WHERE admin_user_id = ?').get(user.id);
   }
 

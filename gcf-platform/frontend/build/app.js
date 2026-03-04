@@ -746,9 +746,13 @@ async function renderOrganizations() {
   const orgs = data.data || data;
 
   let tableHtml = '';
+  const isOrgAdminWithoutOrg = ['org_admin','org_operator'].includes(state.user.role) && !state.user.organization?.id;
   if (orgs.length === 0) {
-    tableHtml = `<div class="empty-state"><div class="icon">🏠</div><h3>Nessuna organizzazione</h3>
-      <p>Crea la tua organizzazione per iniziare</p></div>`;
+    tableHtml = isOrgAdminWithoutOrg 
+      ? `<div class="empty-state"><div class="icon">🏠</div><h3>Nessuna organizzazione associata</h3>
+          <p>Crea la tua organizzazione per iniziare il percorso di certificazione</p>
+          <button class="btn btn-primary mt-2" onclick="navigate('organization-edit','new')">+ Crea la tua organizzazione</button></div>`
+      : `<div class="empty-state"><div class="icon">🏠</div><h3>Nessuna organizzazione</h3></div>`;
   } else {
     tableHtml = `
       <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
@@ -777,7 +781,7 @@ async function renderOrganizations() {
   }
 
   $('#page-content').innerHTML = `
-    ${state.user.role === 'admin' ? '<button class="btn btn-primary mb-2" onclick="navigate(\'organization-edit\',\'new\')">+ Nuova organizzazione</button>' : ''}
+    ${isOrgAdminWithoutOrg && orgs.length > 0 ? '<button class="btn btn-primary mb-2" onclick="navigate(\'organization-edit\',\'new\')">+ Crea la tua organizzazione</button>' : ''}
     ${tableHtml}
   `;
 }
@@ -845,6 +849,33 @@ async function renderOrganizationEdit(id) {
           <div class="form-group"><label>Latitudine</label><input type="number" step="any" id="org-lat" value="${org?.latitude||''}"></div>
           <div class="form-group"><label>Longitudine</label><input type="number" step="any" id="org-lng" value="${org?.longitude||''}"></div>
         </div>
+        ${isNew ? `
+        <div style="border-top:2px solid #e0e0e0;margin-top:16px;padding-top:16px">
+          <h3 style="margin-bottom:8px">📎 Documenti di legittimazione</h3>
+          <p class="text-sm text-muted" style="margin-bottom:12px">Carica almeno un documento che attesti il tuo legame con l'organizzazione (visura camerale, statuto, delega, nomina). Solo PDF, max 10MB.</p>
+          <div id="org-docs-list" style="margin-bottom:12px"></div>
+          <div class="form-row" style="align-items:flex-end">
+            <div class="form-group" style="flex:1">
+              <label>Tipo documento</label>
+              <select id="org-doc-type">
+                <option value="visura_camerale">Visura camerale</option>
+                <option value="statuto">Statuto / Atto costitutivo</option>
+                <option value="delega">Delega del legale rappresentante</option>
+                <option value="nomina">Nomina / Incarico</option>
+                <option value="altro">Altro documento</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:2">
+              <label>File PDF</label>
+              <input type="file" id="org-doc-file" accept="application/pdf">
+            </div>
+            <div class="form-group" style="flex:0">
+              <button type="button" class="btn btn-secondary" onclick="addOrgDoc()">+ Aggiungi</button>
+            </div>
+          </div>
+          <div id="org-doc-error" class="alert alert-danger hidden" style="margin-top:8px"></div>
+        </div>
+        ` : ''}
       </div>
       <div class="card-footer flex-between">
         <button type="button" class="btn btn-secondary" onclick="navigate('organizations')">Annulla</button>
@@ -867,10 +898,69 @@ async function renderOrganizationEdit(id) {
   // Auto fill region on load if province is set
   if (org?.province && !org?.region) autoFillRegion();
 
+  // Document queue for new org
+  const orgDocQueue = [];
+  window.addOrgDoc = function() {
+    const fileInput = $('#org-doc-file');
+    const typeSelect = $('#org-doc-type');
+    const errDiv = $('#org-doc-error');
+    if (errDiv) { errDiv.classList.add('hidden'); errDiv.textContent = ''; }
+
+    if (!fileInput.files.length) {
+      if (errDiv) { errDiv.textContent = 'Seleziona un file PDF'; errDiv.classList.remove('hidden'); }
+      return;
+    }
+    const file = fileInput.files[0];
+    if (file.type !== 'application/pdf') {
+      if (errDiv) { errDiv.textContent = 'Solo file PDF ammessi'; errDiv.classList.remove('hidden'); }
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      if (errDiv) { errDiv.textContent = 'File troppo grande (max 10MB)'; errDiv.classList.remove('hidden'); }
+      return;
+    }
+
+    const docTypeLabels = { visura_camerale: 'Visura camerale', statuto: 'Statuto / Atto costitutivo', delega: 'Delega', nomina: 'Nomina / Incarico', altro: 'Altro' };
+    orgDocQueue.push({ file, type: typeSelect.value, typeLabel: docTypeLabels[typeSelect.value] || typeSelect.value });
+    fileInput.value = '';
+
+    const listDiv = $('#org-docs-list');
+    if (listDiv) {
+      listDiv.innerHTML = orgDocQueue.map((d, i) => `
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f5f9f5;border:1px solid #c8e6c9;border-radius:8px;margin-bottom:6px">
+          <span style="flex:1">📄 <strong>${sanitize(d.typeLabel)}</strong> — ${sanitize(d.file.name)} (${(d.file.size/1024).toFixed(0)} KB)</span>
+          <button type="button" class="btn btn-danger btn-sm" onclick="removeOrgDoc(${i})">🗑️</button>
+        </div>
+      `).join('');
+    }
+  };
+  window.removeOrgDoc = function(idx) {
+    orgDocQueue.splice(idx, 1);
+    window.addOrgDoc.call ? null : null; // just trigger re-render
+    const listDiv = $('#org-docs-list');
+    const docTypeLabels = { visura_camerale: 'Visura camerale', statuto: 'Statuto / Atto costitutivo', delega: 'Delega', nomina: 'Nomina / Incarico', altro: 'Altro' };
+    if (listDiv) {
+      listDiv.innerHTML = orgDocQueue.map((d, i) => `
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f5f9f5;border:1px solid #c8e6c9;border-radius:8px;margin-bottom:6px">
+          <span style="flex:1">📄 <strong>${sanitize(d.typeLabel)}</strong> — ${sanitize(d.file.name)} (${(d.file.size/1024).toFixed(0)} KB)</span>
+          <button type="button" class="btn btn-danger btn-sm" onclick="removeOrgDoc(${i})">🗑️</button>
+        </div>
+      `).join('');
+    }
+  };
+
   $('#org-form').onsubmit = async (e) => {
     e.preventDefault();
     const email = $('#org-email').value.trim();
     if (email && !isValidEmail(email)) { toast('Inserisci un indirizzo email valido', 'error'); return; }
+
+    // Verifica documenti obbligatori per nuova org
+    if (isNew && orgDocQueue.length === 0) {
+      const errDiv = $('#org-doc-error');
+      if (errDiv) { errDiv.textContent = 'Carica almeno un documento di legittimazione'; errDiv.classList.remove('hidden'); }
+      toast('Carica almeno un documento di legittimazione', 'error');
+      return;
+    }
 
     const body = {
       name: $('#org-name').value, legalForm: $('#org-legal').value,
@@ -885,7 +975,42 @@ async function renderOrganizationEdit(id) {
     const result = isNew
       ? await api('/organizations', { method: 'POST', body: JSON.stringify(body) })
       : await api(`/organizations/${id}`, { method: 'PUT', body: JSON.stringify(body) });
-    if (result) { toast(isNew ? 'Organizzazione creata!' : 'Salvata!', 'success'); navigate('organizations'); }
+    if (result) { 
+      // Upload documenti per nuova org
+      if (isNew && result.id && orgDocQueue.length > 0) {
+        let uploadOk = 0;
+        for (const doc of orgDocQueue) {
+          try {
+            const formData = new FormData();
+            formData.append('file', doc.file);
+            formData.append('document_type', doc.type);
+            const resp = await fetch(`${API}/organizations/${result.id}/documents`, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${state.token}` },
+              body: formData
+            });
+            if (resp.ok) uploadOk++;
+            else console.error('Doc upload failed:', await resp.text());
+          } catch(uploadErr) {
+            console.error('Doc upload error:', uploadErr);
+          }
+        }
+        if (uploadOk < orgDocQueue.length) {
+          toast(`Organizzazione creata. ${uploadOk}/${orgDocQueue.length} documenti caricati. Puoi caricare i restanti dal dettaglio.`, 'warning');
+        }
+      }
+      if (!document.querySelector('.toast.warning')) {
+        toast(isNew ? 'Organizzazione creata! In attesa di verifica da parte di AICARE.' : 'Salvata!', 'success');
+      } 
+      // Aggiorna profilo utente per associare la nuova organizzazione
+      if (isNew) {
+        const profile = await api('/auth/me');
+        if (profile) {
+          state.user.organization = profile.organization || null;
+        }
+      }
+      navigate('organizations'); 
+    }
   };
 }
 
@@ -910,13 +1035,18 @@ async function renderCertifications() {
   const orgId = state.user.organization?.id;
 
   // Verifica se l'org può fare domanda (solo org_admin, nessuna cert attiva/in corso)
-  const canRequest = isOrgAdmin && orgId && !certs.some(c => ['draft','submitted','doc_review','doc_approved','audit_scheduled','audit_completed','approved','issued'].includes(c.status));
+  const orgStatus = state.user.organization?.status;
+  const canRequest = isOrgAdmin && orgId && orgStatus === 'active' && !certs.some(c => ['draft','submitted','doc_review','doc_approved','audit_scheduled','audit_completed','approved','issued'].includes(c.status));
+  const pendingOrg = isOrgAdmin && orgId && orgStatus === 'pending';
 
-  const actions = canRequest ? `<button class="btn btn-primary" onclick="requestCertification()">📜 Richiedi certificazione</button>` : '';
+  const actions = canRequest ? `<button class="btn btn-primary" onclick="requestCertification()">📜 Richiedi certificazione</button>` 
+    : pendingOrg ? `<div class="alert alert-warning" style="margin-bottom:0">⏳ La tua organizzazione è in attesa di verifica. Potrai richiedere la certificazione dopo l'attivazione da parte di AICARE.</div>` : '';
 
   $('#page-content').innerHTML = certs.length === 0 ? `
     <div class="empty-state"><div class="icon">📜</div><h3>Nessuna certificazione</h3>
-    ${isOrgAdmin ? `<p>Non hai ancora una certificazione.</p><button class="btn btn-primary mt-2" onclick="requestCertification()">📜 Richiedi certificazione</button>` : '<p>Nessuna certificazione presente.</p>'}
+    ${pendingOrg ? `<p>⏳ La tua organizzazione è in attesa di verifica. Potrai richiedere la certificazione dopo l'attivazione da parte di AICARE.</p>`
+      : canRequest ? `<p>Non hai ancora una certificazione.</p><button class="btn btn-primary mt-2" onclick="requestCertification()">📜 Richiedi certificazione</button>` 
+      : '<p>Nessuna certificazione presente.</p>'}
     </div>
   ` : `
     ${actions ? `<div class="mb-2">${actions}</div>` : ''}
@@ -1027,7 +1157,7 @@ async function renderCertificationDetail(id) {
   ` : '';
 
   // Upload addizionale (se in fase di revisione)
-  const canUploadMore = ['admin','org_admin','org_operator'].includes(state.user.role) && ['submitted','doc_review','draft'].includes(cert.status);
+  const canUploadMore = ['org_admin','org_operator'].includes(state.user.role) && ['submitted','doc_review','draft'].includes(cert.status);
   const uploadBtn = canUploadMore ? `<button class="btn btn-secondary mt-2" onclick="uploadAdditionalDoc('${id}')">📎 Carica documento</button>` : '';
 
   $('#page-content').innerHTML = `
@@ -2049,7 +2179,29 @@ async function renderOrganizationDetail(id) {
   // Load activities for this org
   const activities = await api(`/beneficiaries/activities/list?organization_id=${id}`) || [];
 
+  // Load org documents if admin or owner
+  let orgDocs = [];
+  const canSeeDocs = state.user.role === 'admin' || (['org_admin','org_operator'].includes(state.user.role) && state.user.organization?.id === id);
+  if (canSeeDocs) {
+    try { orgDocs = await api(`/organizations/${id}/documents`) || []; } catch(e) {}
+  }
+
+  const DOC_TYPE_LABELS = { visura_camerale: 'Visura camerale', statuto: 'Statuto / Atto costitutivo', delega: 'Delega', nomina: 'Nomina / Incarico', altro: 'Altro' };
+  const isAdmin = state.user.role === 'admin';
+  const isOwner = ['org_admin','org_operator'].includes(state.user.role) && state.user.organization?.id === id;
+
   $('#page-content').innerHTML = `
+    ${org.status === 'pending' && isOwner ? `
+      <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:14px;color:#856404">
+        ⏳ <strong>Organizzazione in attesa di verifica</strong> — AICARE sta verificando i documenti di legittimazione. Riceverai una notifica quando l'organizzazione verrà attivata.
+      </div>
+    ` : ''}
+    ${org.status === 'pending' && isAdmin ? `
+      <div style="background:#e3f2fd;border:1px solid #42a5f5;border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:14px;color:#1565c0">
+        ⏳ <strong>Organizzazione in attesa di verifica</strong> — Verifica i documenti di legittimazione e attiva l'organizzazione dal menu stato.
+      </div>
+    ` : ''}
+
     <div class="card mb-2">
       <div class="card-header" style="background:linear-gradient(135deg,#1a3d17,#2d5a27);color:white;border-radius:8px 8px 0 0">
         <h3>${sanitize(org.name)}</h3>
@@ -2070,10 +2222,54 @@ async function renderOrganizationDetail(id) {
         </div>
         ${org.social_manager_name ? `<p class="mt-1"><strong>Responsabile servizi:</strong> ${sanitize(org.social_manager_name)} ${org.social_manager_role ? '('+sanitize(org.social_manager_role)+')' : ''}</p>` : ''}
         <div class="mt-2">
-          ${state.user.role === 'admin' || (['org_admin','org_operator'].includes(state.user.role) && state.user.organization?.id === id) ? `<button class="btn btn-secondary btn-sm" onclick="navigate('organization-edit','${id}')">✏️ Modifica</button>` : ''}
+          ${isAdmin || isOwner ? `<button class="btn btn-secondary btn-sm" onclick="navigate('organization-edit','${id}')">✏️ Modifica</button>` : ''}
         </div>
       </div>
     </div>
+
+    ${canSeeDocs ? `
+    <div class="card mb-2">
+      <div class="card-header"><h3>📎 Documenti di legittimazione (${orgDocs.length})</h3></div>
+      <div class="card-body">
+        ${orgDocs.length === 0 ? '<p class="text-muted">Nessun documento caricato</p>' : `
+          <div class="table-container"><table class="card-table">
+            <thead><tr><th>Tipo</th><th>File</th><th>Dimensione</th><th>Caricato da</th><th>Data</th><th>Azioni</th></tr></thead>
+            <tbody>${orgDocs.map(d => `<tr>
+              <td data-label="Tipo">${DOC_TYPE_LABELS[d.document_type] || d.document_type}</td>
+              <td data-label="File">${sanitize(d.file_name)}</td>
+              <td data-label="Dimensione">${d.file_size ? (d.file_size/1024).toFixed(0) + ' KB' : '—'}</td>
+              <td data-label="Caricato da">${sanitize(d.uploader_name || '—')}</td>
+              <td data-label="Data">${formatDate(d.created_at)}</td>
+              <td data-label="Azioni"><div style="display:flex;gap:4px">
+                <button class="btn btn-secondary btn-sm" onclick="downloadOrgDoc('${id}','${d.id}','${sanitize(d.file_name)}')">⬇️</button>
+                ${isAdmin || isOwner ? `<button class="btn btn-danger btn-sm" onclick="deleteOrgDoc('${id}','${d.id}')">🗑️</button>` : ''}
+              </div></td>
+            </tr>`).join('')}</tbody>
+          </table></div>
+        `}
+        ${isOwner && org.status === 'pending' ? `
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee">
+            <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+              <div class="form-group" style="margin:0;flex:1;min-width:150px">
+                <label style="font-size:13px">Tipo documento</label>
+                <select id="add-org-doc-type" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;width:100%">
+                  <option value="visura_camerale">Visura camerale</option>
+                  <option value="statuto">Statuto / Atto costitutivo</option>
+                  <option value="delega">Delega</option>
+                  <option value="nomina">Nomina / Incarico</option>
+                  <option value="altro">Altro</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin:0;flex:2;min-width:200px">
+                <input type="file" id="add-org-doc-file" accept="application/pdf" style="font-size:13px">
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="uploadOrgDocFromDetail('${id}')">📎 Carica</button>
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+    ` : ''}
 
     <div class="card mb-2">
       <div class="card-header"><h3>👥 Beneficiari (${bens.length})</h3></div>
@@ -2111,6 +2307,49 @@ async function renderOrganizationDetail(id) {
       </div>
     </div>
   `;
+}
+
+// ===== Org Document Helpers =====
+async function downloadOrgDoc(orgId, docId, fileName) {
+  try {
+    const resp = await fetch(`${API}/organizations/${orgId}/documents/${docId}/download`, {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    if (!resp.ok) throw new Error('Errore download');
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = fileName; a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) { toast('Errore nel download del documento', 'error'); }
+}
+
+function deleteOrgDoc(orgId, docId) {
+  showConfirmModal('Eliminare documento?', 'Sei sicuro di voler eliminare questo documento?', async () => {
+    const result = await api(`/organizations/${orgId}/documents/${docId}`, { method: 'DELETE' });
+    if (result) { toast('Documento eliminato', 'success'); renderOrganizationDetail(orgId); }
+  });
+}
+
+async function uploadOrgDocFromDetail(orgId) {
+  const fileInput = document.getElementById('add-org-doc-file');
+  const typeSelect = document.getElementById('add-org-doc-type');
+  if (!fileInput || !fileInput.files.length) { toast('Seleziona un file PDF', 'error'); return; }
+  const file = fileInput.files[0];
+  if (file.type !== 'application/pdf') { toast('Solo file PDF ammessi', 'error'); return; }
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('document_type', typeSelect.value);
+
+  try {
+    const resp = await fetch(`${API}/organizations/${orgId}/documents`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${state.token}` },
+      body: formData
+    });
+    if (resp.ok) { toast('Documento caricato!', 'success'); renderOrganizationDetail(orgId); }
+    else { const err = await resp.json(); toast(err.error || 'Errore upload', 'error'); }
+  } catch(e) { toast('Errore nel caricamento', 'error'); }
 }
 
 // ============================================================
@@ -2801,7 +3040,7 @@ function showResetPasswordModal(id, email) {
 async function renderProfile() {
   const u = state.user;
   renderLayout('Il mio profilo', `
-    <div class="card" style="max-width:600px">
+    <div class="card">
       <div class="card-header"><h3>Dati personali</h3></div>
       <div class="card-body">
         <form id="profile-form">
@@ -2816,7 +3055,7 @@ async function renderProfile() {
         </form>
       </div>
     </div>
-    <div class="card mt-2" style="max-width:600px">
+    <div class="card mt-2">
       <div class="card-header"><h3>Cambia password</h3></div>
       <div class="card-body">
         <form id="pw-form">

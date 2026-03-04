@@ -4,8 +4,30 @@
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const { getDb } = require('../utils/database');
 const { authenticate, authorize, optionalAuth } = require('../middleware/auth');
+
+// Configure multer for organization document uploads
+const orgUploadDir = process.env.UPLOAD_DIR 
+  ? path.join(process.env.UPLOAD_DIR, 'organizations')
+  : path.join(__dirname, '..', '..', 'uploads', 'organizations');
+if (!fs.existsSync(orgUploadDir)) fs.mkdirSync(orgUploadDir, { recursive: true });
+
+const orgStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, orgUploadDir),
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${uuidv4().slice(0,8)}.pdf`)
+});
+const orgUpload = multer({
+  storage: orgStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') cb(null, true);
+    else cb(new Error('Solo file PDF ammessi'));
+  }
+});
 
 // GET /api/organizations - Lista (con filtri)
 router.get('/', optionalAuth, (req, res) => {
@@ -16,10 +38,10 @@ router.get('/', optionalAuth, (req, res) => {
     let where = ['1=1'];
     let params = [];
 
-    // Solo admin e auditor vedono tutte, gli altri solo active
-    if (!req.user || !['admin', 'auditor'].includes(req.user.role)) {
+    // Solo admin e auditor vedono tutte, org_admin/org_operator vedono la propria, gli altri solo active
+    if (!req.user || !['admin', 'auditor', 'org_admin', 'org_operator'].includes(req.user.role)) {
       where.push("o.status = 'active'");
-    } else if (status) {
+    } else if (['admin', 'auditor'].includes(req.user?.role) && status) {
       where.push('o.status = ?');
       params.push(status);
     }
@@ -103,9 +125,16 @@ router.get('/:id', optionalAuth, (req, res) => {
 });
 
 // POST /api/organizations
-router.post('/', authenticate, authorize('admin', 'org_admin'), (req, res) => {
+router.post('/', authenticate, authorize('org_admin'), (req, res) => {
   try {
     const db = getDb();
+
+    // Verifica che l'org_admin non abbia già un'organizzazione
+    const existing = db.prepare('SELECT id FROM organizations WHERE admin_user_id = ?').get(req.user.id);
+    if (existing) {
+      return res.status(409).json({ error: 'Hai già un\'organizzazione associata' });
+    }
+
     const {
       name, legalForm, taxCode, vatNumber, address, city, province, postalCode, region,
       latitude, longitude, phone, email, website, description,
@@ -240,6 +269,116 @@ router.put('/:id/status', authenticate, authorize('admin'), (req, res) => {
     res.json({ message: 'Status aggiornato' });
   } catch (err) {
     res.status(500).json({ error: 'Errore aggiornamento status' });
+  }
+});
+
+// ===== DOCUMENTI ORGANIZZAZIONE =====
+
+// POST /api/organizations/:id/documents - Upload documento PDF
+router.post('/:id/documents', authenticate, authorize('org_admin'), (req, res) => {
+  orgUpload.single('file')(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ error: 'File troppo grande (max 10MB)' });
+      return res.status(500).json({ error: err.message || 'Errore upload' });
+    }
+    if (!req.file) return res.status(400).json({ error: 'Nessun file caricato' });
+
+    try {
+      const db = getDb();
+      const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(req.params.id);
+      if (!org) return res.status(404).json({ error: 'Organizzazione non trovata' });
+      if (org.admin_user_id !== req.user.id) return res.status(403).json({ error: 'Non autorizzato' });
+
+      const docType = req.body.document_type || 'altro';
+      const notes = req.body.notes || null;
+      const docId = uuidv4();
+
+      db.prepare(`
+        INSERT INTO organization_documents (id, organization_id, document_type, file_path, file_name, file_size, uploaded_by, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(docId, req.params.id, docType, req.file.filename, req.file.originalname, req.file.size, req.user.id, notes);
+
+      res.status(201).json({ id: docId, message: 'Documento caricato' });
+    } catch (dbErr) {
+      console.error('Org doc upload error:', dbErr);
+      res.status(500).json({ error: 'Errore salvataggio documento' });
+    }
+  });
+});
+
+// GET /api/organizations/:id/documents - Lista documenti organizzazione
+router.get('/:id/documents', authenticate, (req, res) => {
+  try {
+    const db = getDb();
+    const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(req.params.id);
+    if (!org) return res.status(404).json({ error: 'Organizzazione non trovata' });
+
+    // Solo admin o proprietario dell'org
+    if (req.user.role !== 'admin' && org.admin_user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Non autorizzato' });
+    }
+
+    const docs = db.prepare(`
+      SELECT od.*, u.first_name || ' ' || u.last_name as uploader_name
+      FROM organization_documents od
+      LEFT JOIN users u ON od.uploaded_by = u.id
+      WHERE od.organization_id = ?
+      ORDER BY od.created_at DESC
+    `).all(req.params.id);
+
+    res.json(docs);
+  } catch (err) {
+    res.status(500).json({ error: 'Errore recupero documenti' });
+  }
+});
+
+// GET /api/organizations/:id/documents/:docId/download - Scarica documento
+router.get('/:id/documents/:docId/download', authenticate, (req, res) => {
+  try {
+    const db = getDb();
+    const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(req.params.id);
+    if (!org) return res.status(404).json({ error: 'Organizzazione non trovata' });
+
+    if (req.user.role !== 'admin' && org.admin_user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Non autorizzato' });
+    }
+
+    const doc = db.prepare('SELECT * FROM organization_documents WHERE id = ? AND organization_id = ?').get(req.params.docId, req.params.id);
+    if (!doc) return res.status(404).json({ error: 'Documento non trovato' });
+
+    const filePath = path.join(orgUploadDir, doc.file_path);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File non trovato sul disco' });
+
+    res.setHeader('Content-Disposition', `attachment; filename="${doc.file_name}"`);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.sendFile(filePath);
+  } catch (err) {
+    res.status(500).json({ error: 'Errore download documento' });
+  }
+});
+
+// DELETE /api/organizations/:id/documents/:docId - Elimina documento
+router.delete('/:id/documents/:docId', authenticate, authorize('admin', 'org_admin'), (req, res) => {
+  try {
+    const db = getDb();
+    const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(req.params.id);
+    if (!org) return res.status(404).json({ error: 'Organizzazione non trovata' });
+
+    if (req.user.role !== 'admin' && org.admin_user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Non autorizzato' });
+    }
+
+    const doc = db.prepare('SELECT * FROM organization_documents WHERE id = ? AND organization_id = ?').get(req.params.docId, req.params.id);
+    if (!doc) return res.status(404).json({ error: 'Documento non trovato' });
+
+    // Elimina file dal disco
+    const filePath = path.join(orgUploadDir, doc.file_path);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    db.prepare('DELETE FROM organization_documents WHERE id = ?').run(req.params.docId);
+    res.json({ message: 'Documento eliminato' });
+  } catch (err) {
+    res.status(500).json({ error: 'Errore eliminazione documento' });
   }
 });
 

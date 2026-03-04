@@ -40,6 +40,12 @@ async function main() {
       id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, file_path TEXT NOT NULL,
       caption TEXT, is_primary INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS organization_documents (
+      id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, document_type TEXT NOT NULL,
+      file_path TEXT NOT NULL, file_name TEXT NOT NULL, file_size INTEGER,
+      uploaded_by TEXT, notes TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
     CREATE TABLE IF NOT EXISTS certifications (
       id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, cert_number TEXT UNIQUE,
       status TEXT DEFAULT 'draft', application_date TEXT, doc_review_date TEXT,
