@@ -23,6 +23,7 @@ router.get('/activities/list', authenticate, (req, res) => {
     if (req.user.role === 'org_admin' || req.user.role === 'org_operator') {
       const org = db.prepare('SELECT id FROM organizations WHERE admin_user_id = ?').get(req.user.id);
       if (org) { where += ' AND al.organization_id = ?'; params.push(org.id); }
+      else return res.json([]);
     } else if (organization_id) {
       where += ' AND al.organization_id = ?';
       params.push(organization_id);
