@@ -1,6 +1,6 @@
 # 🌿 GCF Platform — Green Care Farm Certificata AICARE
 
-Piattaforma web per la gestione del ciclo completo di certificazione delle organizzazioni che erogano servizi di **agricoltura sociale** in Italia, secondo lo standard **AICARE-GCF-STD-01 v1.0**.
+Piattaforma web per la gestione del ciclo completo di certificazione delle organizzazioni che erogano servizi di **agricoltura sociale** in Italia, secondo lo standard **SNM-AS v1.0** (Standard Nazionale Minimo — Agricoltura Sociale).
 
 ![Node.js](https://img.shields.io/badge/Node.js-20_Alpine-339933?logo=node.js)
 ![Express](https://img.shields.io/badge/Express-4.18-000000?logo=express)
@@ -35,14 +35,15 @@ Piattaforma web per la gestione del ciclo completo di certificazione delle organ
 
 La piattaforma gestisce l'intero ciclo di vita della certificazione **Green Care Farm — AICARE**:
 
-1. **Registrazione** dell'organizzazione e invio domanda di certificazione
-2. **Revisione documentale** da parte dell'admin con upload/download PDF
-3. **Audit di conformità** con checklist a 10 requisiti / 5 aree (compilata dall'auditor)
-4. **Rilascio certificato** con numero univoco e validità triennale
-5. **Sorveglianza periodica** con audit di follow-up
-6. **Registro pubblico** delle organizzazioni certificate consultabile senza login
+1. **Registrazione** dell'organizzazione con upload documenti di legittimazione (visura camerale, statuto, delega)
+2. **Verifica e attivazione** da parte dell'admin AICARE (scarica PDF, verifica, attiva)
+3. **Richiesta certificazione** con upload documentazione di conformità
+4. **Revisione documentale** da parte dell'admin con download/verifica PDF
+5. **Audit di conformità** con checklist a 14 requisiti / 5 aree (compilata dall'auditor)
+6. **Rilascio certificato** con numero univoco e validità triennale (solo se tutti i 14 requisiti C)
+7. **Registro pubblico** delle organizzazioni certificate consultabile senza login
 
-Il sistema implementa una **separazione rigorosa dei ruoli**: l'admin crea e assegna gli audit, ma solo l'auditor può compilare la checklist. Questo garantisce indipendenza tra chi verifica e chi decide.
+Il sistema implementa una **separazione rigorosa dei ruoli**: l'admin verifica documenti e assegna gli audit, ma solo l'auditor può compilare la checklist. L'admin non crea organizzazioni né gestisce beneficiari/attività — sono compiti dell'organizzazione stessa.
 
 ---
 
@@ -51,7 +52,7 @@ Il sistema implementa una **separazione rigorosa dei ruoli**: l'admin crea e ass
 ### Gestione completa
 - Organizzazioni con dati anagrafici, servizi, target utenza, coordinate GPS
 - Certificazioni con workflow a stati (inviata → revisione → audit → rilascio)
-- Audit con checklist 10 requisiti / 5 aree, evidenze, note, azioni correttive
+- Audit con checklist 14 requisiti / 5 aree, evidenze, note, azioni correttive
 - Beneficiari anonimi con codice, tipologia, ente inviante
 - Registro attività quotidiane con durata in ore e tipo di servizio
 - Generazione PDF (certificati ufficiali e report audit)
@@ -85,7 +86,7 @@ Il sistema implementa una **separazione rigorosa dei ruoli**: l'admin crea e ass
 │                    Browser (SPA)                         │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐              │
 │  │  app.js   │  │ style.css│  │index.html│              │
-│  │ (2600 LOC)│  │ (350 LOC)│  │ (15 LOC) │              │
+│  │ (3100+ LOC)│  │ (350 LOC)│  │ (15 LOC) │              │
 │  └──────────┘  └──────────┘  └──────────┘              │
 └─────────────────────┬───────────────────────────────────┘
                       │ fetch() → /api/*
@@ -98,7 +99,7 @@ Il sistema implementa una **separazione rigorosa dei ruoli**: l'admin crea e ass
 │                      │                                   │
 │              ┌───────▼────────┐                          │
 │              │  sql.js (SQLite)│                          │
-│              │   24 tabelle    │                          │
+│              │   25 tabelle    │                          │
 │              └───────┬────────┘                          │
 │                      │                                   │
 │              ┌───────▼────────┐  ┌──────────────┐       │
@@ -144,11 +145,11 @@ gcf-platform/
 │   ├── uploads/                # Documenti PDF caricati
 │   └── src/
 │       ├── index.js            # Entry point Express
-│       ├── init-db.js          # Schema DB (24 tabelle)
+│       ├── init-db.js          # Schema DB (25 tabelle)
 │       ├── middleware/
 │       │   └── auth.js         # JWT authentication + role check
 │       ├── routes/
-│       │   ├── admin.js        # Dashboard admin, utenti, backup/restore
+│       │   ├── admin.js        # Dashboard admin, utenti, recensioni
 │       │   ├── audits.js       # CRUD audit + checklist + PDF
 │       │   ├── auth.js         # Login, registrazione, profilo, badge
 │       │   ├── beneficiaries.js # CRUD beneficiari + attività
@@ -156,20 +157,13 @@ gcf-platform/
 │       │   ├── organizations.js # CRUD organizzazioni
 │       │   └── registry.js     # Registro pubblico + recensioni
 │       └── utils/
-│           └── database.js     # Wrapper sql.js con auto-save + reload
+│           └── database.js     # Wrapper sql.js con auto-save
 │
-├── frontend/
-│   └── build/
-│       ├── index.html          # Shell HTML (15 righe)
-│       ├── app.js              # Intera applicazione SPA (2600+ LOC)
-│       └── style.css           # Stili + responsive (350+ LOC)
-│
-├── scripts/
-│   └── backup-gcf.sh           # Script backup notturno (cron sul NAS)
-│
-└── docs/
-    ├── GCF_Guida_Operativa_v6.docx  # Manuale utente completo
-    └── gcf-diagramma-ruoli.html     # Diagramma interattivo ruoli/azioni
+└── frontend/
+    └── build/
+        ├── index.html          # Shell HTML (15 righe)
+        ├── app.js              # Intera applicazione SPA (2600+ LOC)
+        └── style.css           # Stili + responsive (350+ LOC)
 ```
 
 ---
@@ -321,29 +315,15 @@ ipconfig getifaddr en0
 | `gcf-data` | `/app/db/` | Database SQLite |
 | `gcf-uploads` | `/app/uploads/` | Documenti PDF |
 
-### Accesso remoto (fuori dalla LAN)
+### Accesso remoto
 
-La piattaforma è accessibile dall'esterno tramite tunnel ngrok sicuro:
+La piattaforma è accessibile pubblicamente tramite **Cloudflare Tunnel**:
 
-**URL permanente:** `https://paleethnological-lilia-promarriage.ngrok-free.dev`
-
-Il tunnel è gestito da un container Docker dedicato sul NAS:
-
-```bash
-# Avvio tunnel (già attivo sul NAS)
-docker run -d --name ngrok --net host \
-  -e NGROK_AUTHTOKEN=<token> \
-  ngrok/ngrok http 3000
-
-# Verifica URL pubblico
-wget -qO- http://localhost:4040/api/tunnels
+```
+🌐 https://gcf.aicare.it
 ```
 
-Al primo accesso, ngrok mostra una pagina di avviso — cliccare "Visit Site" per procedere.
-
-Alternative per domini personalizzati:
-- **Cloudflare Tunnel** (gratis, richiede dominio su Cloudflare DNS)
-- **ngrok Hobbyist** ($8/mese, dominio tipo `gcf-aicare.ngrok.app`)
+Il tunnel è gestito da un container dedicato (`gcf-cloudflared`) che espone il servizio senza necessità di port forwarding o modifiche al router. Include HTTPS automatico, protezione DDoS e nessun limite di connessioni.
 
 ### Health check
 
@@ -352,39 +332,11 @@ curl http://localhost:3000/api/health
 # → { "status": "ok", "timestamp": "..." }
 ```
 
-### Backup
-
-Il sistema di backup include **database + documenti PDF** in un unico file .zip.
-
-**Manuale (dall'interfaccia):** Dashboard Admin → card Manutenzione:
-- "💾 Scarica backup" → scarica .zip con database + tutti i PDF
-- "📂 Ripristina backup" → carica .zip (completo) o .sqlite (solo database)
-
-**Automatico notturno (cron sul NAS):**
-
-```bash
-# Lo script è in scripts/backup-gcf.sh (nel repo)
-# Sul NAS va copiato in /share/Container/backups/backup-gcf.sh
-# Eseguito ogni notte alle 3:30, conserva ultimi 30 backup
-
-# Backup manuale
-/share/Container/backups/backup-gcf.sh
-
-# Ripristino da interfaccia: Dashboard Admin → 📂 Ripristina backup
-# Ripristino manuale da riga di comando:
-docker stop gcf-platform
-docker cp /share/Container/backups/gcf-XXXXXXXX.tar.gz /tmp/
-cd /tmp && tar xzf gcf-XXXXXXXX.tar.gz
-docker cp gcf.sqlite gcf-platform:/app/db/gcf.sqlite
-docker cp uploads/ gcf-platform:/app/uploads/
-docker start gcf-platform
-```
-
 ---
 
 ## Database
 
-### Schema (24 tabelle)
+### Schema (25 tabelle)
 
 ```
 ENTITÀ PRINCIPALI
@@ -399,6 +351,7 @@ RELAZIONI
 ├── organization_services       # Servizi erogati (coterapia, educativa...)
 ├── organization_target_users   # Utenza target (minori, disabili...)
 ├── organization_images         # Immagini organizzazione
+├── organization_documents      # Documenti di legittimazione (visura, statuto, delega)
 ├── organization_partners       # Enti partner
 ├── certification_documents     # PDF allegati alla certificazione
 ├── audit_evaluations           # Valutazioni per requisito
@@ -409,7 +362,7 @@ RELAZIONI
 
 SISTEMA
 ├── audit_areas                 # 5 aree di valutazione (reference)
-├── certification_requirements  # 10 requisiti standard (reference)
+├── certification_requirements  # 14 requisiti standard (reference)
 ├── reviews                     # Recensioni pubbliche
 ├── events                      # Calendario eventi
 ├── notifications               # Notifiche utente
@@ -418,7 +371,7 @@ SISTEMA
 └── system_logs                 # Log di sistema
 ```
 
-### Requisiti di certificazione (5 aree, 10 requisiti)
+### Requisiti di certificazione (5 aree, 14 requisiti)
 
 | Area | Req. | Titolo | Evidenze accettabili |
 |------|------|--------|---------------------|
@@ -458,9 +411,13 @@ SISTEMA
 |--------|----------|-------------|------|
 | GET | `/organizations` | Lista organizzazioni (filtrata per ruolo) | ✅ |
 | GET | `/organizations/:id` | Dettaglio organizzazione | ✅ |
-| POST | `/organizations` | Crea organizzazione | Admin |
+| POST | `/organizations` | Crea organizzazione | Org Admin |
 | PUT | `/organizations/:id` | Modifica organizzazione | Admin/Org |
 | PATCH | `/organizations/:id/status` | Cambia stato | Admin |
+| POST | `/organizations/:id/documents` | Upload documento legittimazione (PDF) | Org Admin |
+| GET | `/organizations/:id/documents` | Lista documenti organizzazione | Admin/Org |
+| GET | `/organizations/:id/documents/:docId/download` | Scarica documento PDF | Admin/Org |
+| DELETE | `/organizations/:id/documents/:docId` | Elimina documento | Admin/Org |
 
 ### Certificazioni (`/api/certifications`)
 
@@ -473,8 +430,8 @@ SISTEMA
 | PATCH | `/certifications/:id/approve-docs` | Approva documenti | Admin |
 | PATCH | `/certifications/:id/reject-docs` | Respingi documenti | Admin |
 | PATCH | `/certifications/:id/issue` | Rilascia certificato | Admin |
-| POST | `/certifications/:id/documents` | Upload documento PDF | ✅ |
-| DELETE | `/certifications/:id/documents/:docId` | Elimina documento | Admin |
+| POST | `/certifications/:id/documents` | Upload documento PDF | Org Admin/Op |
+| DELETE | `/certifications/:id/documents/:docId` | Elimina documento | Org Admin/Op |
 
 ### Audit (`/api/audits`)
 
@@ -495,13 +452,13 @@ SISTEMA
 |--------|----------|-------------|------|
 | GET | `/beneficiaries` | Lista beneficiari | ✅ |
 | GET | `/beneficiaries/:id` | Dettaglio beneficiario | ✅ |
-| POST | `/beneficiaries` | Crea beneficiario | Admin/Org |
-| PUT | `/beneficiaries/:id` | Modifica beneficiario | Admin/Org |
-| DELETE | `/beneficiaries/:id` | Elimina (se senza attività) | Admin/Org |
+| POST | `/beneficiaries` | Crea beneficiario | Org Admin/Op |
+| PUT | `/beneficiaries/:id` | Modifica beneficiario | Org Admin/Op |
+| DELETE | `/beneficiaries/:id` | Elimina (se senza attività) | Org Admin/Op |
 | GET | `/beneficiaries/activities` | Lista attività | ✅ |
-| POST | `/beneficiaries/activities` | Registra attività | Admin/Org |
-| PUT | `/beneficiaries/activities/:id` | Modifica attività | Admin/Org |
-| DELETE | `/beneficiaries/activities/:id` | Elimina attività | Admin/Org |
+| POST | `/beneficiaries/activities` | Registra attività | Org Admin/Op |
+| PUT | `/beneficiaries/activities/:id` | Modifica attività | Org Admin/Op |
+| DELETE | `/beneficiaries/activities/:id` | Elimina attività | Org Admin/Op |
 | GET | `/beneficiaries/org/:orgId` | Beneficiari per organizzazione | ✅ |
 | GET | `/beneficiaries/activities/org/:orgId` | Attività per organizzazione | ✅ |
 
@@ -519,8 +476,6 @@ SISTEMA
 | GET | `/admin/reviews` | Recensioni da moderare | Admin |
 | PATCH | `/admin/reviews/:id/approve` | Approva recensione | Admin |
 | DELETE | `/admin/reviews/:id` | Rifiuta/elimina recensione | Admin |
-| GET | `/admin/backup` | Scarica backup completo (.zip con db + PDF) | Admin |
-| POST | `/admin/restore` | Ripristina backup da .zip o .sqlite | Admin |
 
 ### Registro Pubblico (`/api/registry`)
 
@@ -535,7 +490,7 @@ SISTEMA
 | GET | `/registry/regions` | Regioni con organizzazioni | No |
 | GET | `/registry/search` | Ricerca organizzazioni | No |
 
-**Totale: 61 endpoint**
+**Totale: 59 endpoint**
 
 ---
 
@@ -544,21 +499,25 @@ SISTEMA
 | Funzionalità | Admin | Auditor | Org Admin | Operatore | Ente Ref. |
 |-------------|:-----:|:-------:|:---------:|:---------:|:---------:|
 | Dashboard completa | ✅ | ✅ | ✅* | ✅* | ✅ |
-| Gestione organizzazioni | ✅ | ❌ | ✅* | ✅* | ❌ |
-| Gestione certificazioni | ✅ | ❌ | ✅* | ❌ | ❌ |
+| Creare organizzazione | ❌ | ❌ | ✅ | ❌ | ❌ |
+| Modificare organizzazione | ✅ | ❌ | ✅* | ✅* | ❌ |
+| Cambiare stato organizzazione | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Upload documenti legittimazione | ❌ | ❌ | ✅* | ❌ | ❌ |
+| Verificare documenti organizzazione | ✅ | ❌ | ✅* | ❌ | ❌ |
+| Richiedere certificazione | ❌ | ❌ | ✅* | ❌ | ❌ |
+| Upload documenti certificazione | ❌ | ❌ | ✅* | ✅* | ❌ |
+| Revisione documenti certificazione | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Creare/assegnare audit | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Compilare checklist audit | ❌ | ✅ | ❌ | ❌ | ❌ |
-| Visualizzare checklist (sola lettura) | ✅ | — | ❌ | ❌ | ❌ |
-| Gestione beneficiari | ✅ | ❌ | ✅* | ✅* | 👁 |
-| Registrazione attività | ✅ | ❌ | ✅* | ✅* | ❌ |
+| Visualizzare checklist (sola lettura) | ✅ | — | ✅* | ✅* | ❌ |
+| Rilasciare certificato | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Beneficiari (CRUD) | 👁 | ❌ | ✅* | ✅* | 👁 |
+| Attività (CRUD) | 👁 | ❌ | ✅* | ✅* | ❌ |
 | Gestione utenti | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Moderazione recensioni | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Registro pubblico | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Badge notifiche sidebar | ✅** | ✅ | ✅ | ❌ | ❌ |
 
 *\* = solo per la propria organizzazione. 👁 = sola lettura.*
-
-*\*\* L'admin NON ha badge su Audit (non azionabili). Il completamento audit è segnalato dal badge Certificazioni.*
 
 ---
 
@@ -567,32 +526,42 @@ SISTEMA
 ```
   ORGANIZZAZIONE          ADMIN                 AUDITOR
        │                    │                      │
-  ┌────▼────┐               │                      │
-  │ Domanda │               │                      │
-  │ inviata │───────────────▶                      │
-  └─────────┘          ┌────▼────────┐             │
-                       │  Revisione  │             │
-                       │  documenti  │             │
-                       └──────┬──────┘             │
-                         ┌────▼────┐               │
-                         │ Approva │               │
-                         │   doc   │               │
-                         └────┬────┘               │
-                         ┌────▼──────────┐         │
-                         │ Crea audit e  │─────────▶
-                         │ assegna auditor│    ┌────▼─────────┐
-                         └───────────────┘    │  Compila      │
+  ┌────▼─────────┐          │                      │
+  │ Registrazione│          │                      │
+  │ + upload doc │──────────▶                      │
+  │ legittimaz.  │     ┌────▼─────────┐            │
+  └──────────────┘     │  Verifica    │            │
+                       │  documenti   │            │
+                       │  → Attiva org│            │
+                       └──────┬───────┘            │
+  ┌────────────────────◀──────┘                    │
+  │                    │                           │
+  ┌────▼────┐          │                           │
+  │ Domanda │          │                           │
+  │ cert.   │──────────▶                           │
+  └─────────┘     ┌────▼────────┐                  │
+                  │  Revisione  │                  │
+                  │  documenti  │                  │
+                  └──────┬──────┘                  │
+                    ┌────▼────┐                    │
+                    │ Approva │                    │
+                    │   doc   │                    │
+                    └────┬────┘                    │
+                    ┌────▼──────────┐              │
+                    │ Crea audit e  │──────────────▶
+                    │ assegna auditor│         ┌────▼─────────┐
+                    └───────────────┘         │  Compila      │
                                               │  checklist    │
-                                              │  (10 req.)    │
+                                              │  (14 req.)    │
                                               └────┬──────────┘
-                         ┌────────────────────◀────┘
-                    ┌────▼────────┐
-                    │  Rilascia   │
-                    │ certificato │
-                    └──────┬──────┘
-                      ┌────▼────┐
-                      │ ISSUED  │  Validità 3 anni
-                      └─────────┘
+                    ┌────────────────────◀─────────┘
+               ┌────▼────────┐
+               │  Rilascia   │ Solo se 14/14 C
+               │ certificato │
+               └──────┬──────┘
+                 ┌────▼────┐
+                 │ ISSUED  │  Validità 3 anni
+                 └─────────┘
 ```
 
 ### Stati certificazione
@@ -612,7 +581,7 @@ SISTEMA
 
 | Esito | Condizione |
 |-------|-----------|
-| **Conforme** | Tutti i 10 requisiti C |
+| **Conforme** | Tutti i 14 requisiti C |
 | **Conforme con azioni correttive** | ≥1 PC, nessun NC |
 | **Non conforme** | ≥1 NC |
 
@@ -646,13 +615,13 @@ Il file `seed.js` popola il database con dati realistici italiani:
 | Entità | Quantità | Dettagli |
 |--------|----------|---------|
 | Utenti | 13 | Admin, 2 auditor, 5 org admin, 2 operatori, 2 enti, 1 pubblico |
-| Organizzazioni | 5 | 3 attive, 2 in attesa (Emilia-Romagna) |
-| Certificazioni | 5 | 2 rilasciate, 1 audit completato, 1 inviata, 1 in revisione |
-| Audit | 5 | 3 completati con valutazioni dettagliate, 2 pianificati |
+| Organizzazioni | 5 | 3 attive (certificate o in attesa rilascio), 2 in attesa di verifica |
+| Certificazioni | 3 | 2 rilasciate (14C), 1 audit completato (10C+2PC+2NA) |
+| Audit | 3 | 3 completati con valutazioni dettagliate su 14 requisiti |
 | Beneficiari | 12 | Con enti invianti realistici (CSM, SerD, Servizi Sociali) |
-| Attività | ~250 | Generate per 60 giorni, 6 tipologie di servizio |
+| Attività | ~210 | Generate per 60 giorni, 6 tipologie di servizio |
 | Recensioni | 9 | 6 pubblicate, 3 da moderare |
-| Azioni correttive | 3 | Open e in progress |
+| Azioni correttive | 2 | Per Campo Sociale (req. 3.3 e 4.2 parzialmente conformi) |
 
 ### Eseguire il seed
 
@@ -674,18 +643,15 @@ docker exec gcf-platform node /app/seed.js
 
 ## Documentazione allegata
 
-I documenti AICARE di riferimento sono nella root del progetto. La documentazione della piattaforma è nella cartella `docs/`.
-
-| Documento | Posizione | Descrizione |
-|-----------|-----------|-------------|
-| **Standard** AICARE-GCF-STD-01 v1.0 | root | Requisiti minimi per la certificazione |
-| **Checklist Audit** AICARE-GCF-AUD-01 v1.0 | root | Modulo di verifica per l'auditor |
-| **Certificato** AICARE-GCF-CERT-01 v1.0 | root | Template certificato di conformità |
-| **Registro** AICARE-GCF-REG-01 v1.0 | root | Registro ufficiale organizzazioni certificate |
-| **Schema Flusso** | root | Schema esemplificativo servizi agricoltura sociale |
-| **Guida Operativa** v6.0 | `docs/` | Manuale utente completo (30+ pagine) |
-| **Diagramma Ruoli** | `docs/` | Mappa interattiva HTML azioni per ruolo |
-| **Script Backup** | `scripts/` | Script backup notturno per cron NAS |
+| Documento | Codice | Descrizione |
+|-----------|--------|-------------|
+| **Standard** | SNM-AS v1.0 | Standard Nazionale Minimo — Agricoltura Sociale |
+| **Checklist Audit** | SNM-AS-AUD-01 v1.0 | Modulo di verifica per l'auditor (14 requisiti, 5 aree) |
+| **Certificato** | AICARE-GCF-CERT-01 v1.0 | Template certificato di conformità |
+| **Registro** | AICARE-GCF-REG-01 v1.0 | Registro ufficiale organizzazioni certificate |
+| **Guida Operativa** | v9.0 | Manuale utente completo |
+| **Diagramma Ruoli** | HTML interattivo | Mappa interattiva azioni per ruolo |
+| **Schema Flusso** | — | Schema esemplificativo servizi agricoltura sociale |
 
 ---
 
@@ -698,6 +664,7 @@ I documenti AICARE di riferimento sono nella root del progetto. La documentazion
 | Auditor 2 | `anna.moretti@gcf.it` | `auditor123` |
 | Admin Org (Terra Buona) | `giuseppe.verdi@terrabuona.it` | `org12345` |
 | Admin Org (Il Vigneto) | `maria.conti@ilvigneto.it` | `org12345` |
+| Admin Org (Campo Sociale) | `paolo.ferrara@camposociale.it` | `org12345` |
 | Operatore | `chiara.esposito@terrabuona.it` | `oper1234` |
 | Ente Referente | `silvia.gallo@csmpiacenza.it` | `ente1234` |
 | Utente pubblico | `giovanna.marino@gmail.com` | `user1234` |
@@ -708,11 +675,53 @@ I documenti AICARE di riferimento sono nella root del progetto. La documentazion
 
 ## Changelog
 
+### v2.0 — Marzo 2026 (Upgrade SNM-AS)
+
+**Standard e requisiti**
+- Standard aggiornato da AICARE-GCF-STD-01 a **SNM-AS v1.0** (Standard Nazionale Minimo — Agricoltura Sociale)
+- Checklist audit aggiornata a **SNM-AS-AUD-01 v1.0** con 14 requisiti su 5 aree
+- Certificato PDF con riferimento SNM-AS v1.0
+- Forme giuridiche ridotte a: **Impresa agricola** e **Cooperativa sociale** (L. 141/2015)
+
+**Flusso organizzazioni**
+- Org admin crea la propria organizzazione con **upload obbligatorio documenti di legittimazione** (visura camerale, statuto, delega, nomina)
+- Organizzazione nasce in stato "In attesa" con banner di avviso
+- Admin AICARE verifica i documenti, li scarica, e attiva l'organizzazione
+- Solo dopo l'attivazione l'org admin può richiedere la certificazione
+- Documenti organizzazione salvati in `uploads/organizations/` e inclusi nel backup automatico
+- Nuova tabella `organization_documents` (25 tabelle totali)
+
+**Permessi e sicurezza**
+- Admin: **sola lettura** su beneficiari e attività (niente creazione/modifica/elimina)
+- Admin: **non può caricare** documenti di certificazione (solo l'organizzazione)
+- Admin: **non crea** organizzazioni (solo modifica e cambio stato)
+- Ente referente: **sola lettura** — nessun pulsante modifica visibile
+- Org admin: vede **solo la propria** organizzazione
+- Operatore: **non può richiedere** certificazione (solo org admin)
+- Pulsante "Torna alla certificazione" (invece di "Torna agli audit") per ruoli org
+
+**Registro pubblico**
+- Statistiche corrette: contano solo organizzazioni **attive con certificato rilasciato**
+- Filtri regione, servizi, target allineati alle sole organizzazioni certificate
+
+**Dati demo coerenti**
+- 3 certificazioni (2 rilasciate con 14C, 1 audit completato con azioni correttive)
+- 3 audit (tutti completati, zero pianificati)
+- 2 azioni correttive (solo Campo Sociale)
+- Nessuna certificazione per organizzazioni in attesa
+- Forme giuridiche aggiornate nel seed
+
+**Infrastruttura**
+- Hosting su Cloudflare Tunnel: `https://gcf.aicare.it`
+- Profilo utente full-width su desktop
+- Guida Operativa v9.0 aggiornata
+- Diagramma ruoli HTML aggiornato
+
 ### v1.0 — Febbraio 2026
 
 **Session 1-3: Fondamenta**
-- Schema database 24 tabelle con init automatico
-- Backend Express.js con 61 endpoint REST
+- Schema database 25 tabelle con init automatico
+- Backend Express.js con 59 endpoint REST
 - Frontend SPA vanilla JS con routing hash-based
 - Autenticazione JWT con refresh token
 - CRUD completo organizzazioni, certificazioni, audit
@@ -721,7 +730,7 @@ I documenti AICARE di riferimento sono nella root del progetto. La documentazion
 **Session 4-5: Funzionalità core**
 - Workflow certificazione a stati completo
 - Upload/download documenti PDF con Multer
-- Checklist audit 10 requisiti / 5 aree
+- Checklist audit 14 requisiti / 5 aree
 - Generazione PDF certificati e report audit
 - Seed database con dati realistici italiani
 
@@ -753,19 +762,6 @@ I documenti AICARE di riferimento sono nella root del progetto. La documentazion
 - Guida Operativa v5.0
 - Diagramma ruoli HTML aggiornato
 - README.md completo
-
-**Session 11: Deploy NAS + accesso remoto + backup completo**
-- Deploy Docker su QNAP TS-253A (192.168.1.111:3000)
-- Seed database integrato nel container (auto-esecuzione al primo avvio)
-- Tunnel ngrok permanente per accesso remoto (HTTPS)
-- Backup completo (database + documenti PDF) in file .zip dall'interfaccia admin
-- Ripristino backup da .zip (completo) o .sqlite (solo db) con validazione e sicurezza
-- Backup automatico notturno (cron 3:30, rotazione 30 giorni, db + uploads)
-- API endpoint `GET /admin/backup` e `POST /admin/restore`
-- Fix login mobile (`100dvh` + posizionamento primo terzo schermo)
-- Fix `color-scheme: light` per dropdown nativi iOS in dark mode
-- Dipendenze aggiunte: `archiver`, `adm-zip`
-- Guida Operativa v6.0 con sezioni backup/ripristino e accesso remoto
 
 ---
 

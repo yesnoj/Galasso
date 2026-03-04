@@ -176,17 +176,15 @@ const DATA = {
     ]},
     { section: '🏠 Organizzazioni', actions: [
       { name: 'Lista organizzazioni', type: 'read', detail: 'Tutte le organizzazioni con nome, forma giuridica, città e stato.', steps: ['Vai su 🏠 Organizzazioni', 'Vedi tutte (incluse "In attesa")'] },
-      { name: 'Nuova organizzazione', type: 'create', detail: 'Form completo con provincia (picklist 107), regione auto, telefono con prefisso, email validata.', steps: ['Clicca "+ Nuova organizzazione"', 'Compila tutti i campi', 'Provincia → Regione auto', 'Email validata, telefono con prefisso', 'Clicca "Crea"'] },
       { name: 'Modifica organizzazione', type: 'update', detail: 'Modifica qualsiasi dato dell\'organizzazione.', steps: ['Clicca ✏️ nella riga', 'Modifica i campi', 'Salva'] },
       { name: 'Cambia stato', type: 'action', detail: 'Passa lo stato tra: In attesa → Attiva → Sospesa → Revocata tramite picklist.', steps: ['Usa il menu a tendina nella colonna "Stato"', 'Seleziona: ⏳ In attesa / ✅ Attiva / ⚠️ Sospesa / ❌ Revocata', 'Aggiornamento immediato'] },
-      { name: 'Dettaglio organizzazione', type: 'read', detail: 'Vista completa con beneficiari e attività collegate. Codici beneficiari cliccabili per dettaglio.', steps: ['Clicca sul nome dell\'organizzazione', 'Vedi dati anagrafici, servizi, coordinate', 'Tabella beneficiari (codici cliccabili → popup dettaglio)', 'Tabella completa di tutte le attività'] },
+      { name: 'Verifica documenti legittimazione', type: 'action', detail: 'Scarica e verifica i documenti caricati dall\'org admin (visura camerale, statuto, delega). Se conformi, attiva l\'organizzazione.', steps: ['Clicca sul nome dell\'organizzazione in attesa', 'Sezione 📎 Documenti di legittimazione', 'Scarica i PDF con ⬇️', 'Verifica corrispondenza con organizzazione e richiedente', 'Torna alla lista → Cambia stato a ✅ Attiva'] },
+      { name: 'Dettaglio organizzazione', type: 'read', detail: 'Vista completa con documenti legittimazione, beneficiari e attività collegate.', steps: ['Clicca sul nome dell\'organizzazione', 'Vedi dati anagrafici, servizi, coordinate', 'Sezione 📎 Documenti di legittimazione', 'Tabella beneficiari (sola lettura)', 'Tabella attività (sola lettura)'] },
     ]},
     { section: '📜 Certificazioni', actions: [
       { name: 'Lista certificazioni', type: 'read', detail: 'Tutte le certificazioni con stato corrente.' },
       { name: 'Revisione documenti', type: 'action', detail: 'Avvia la revisione dei documenti PDF allegati dall\'organizzazione.', steps: ['Apri Dettaglio certificazione', 'Clicca "Avvia revisione documenti"', 'Scarica e verifica i PDF allegati', 'Approva o Respingi documenti'] },
       { name: 'Scarica documenti PDF', type: 'download', detail: 'Scarica i PDF caricati dall\'organizzazione.', steps: ['Vai su Dettaglio certificazione', 'Clicca ⬇️ su ogni documento'] },
-      { name: 'Elimina documenti', type: 'delete', detail: 'Rimuovi documenti durante la revisione.', steps: ['Clicca 🗑️ sul documento', 'Conferma eliminazione'] },
-      { name: 'Carica documenti', type: 'create', detail: 'Carica PDF aggiuntivi durante la revisione.', steps: ['Clicca 📎 Carica documento', 'Seleziona file PDF (max 10MB)', 'Upload automatico'] },
       { name: 'Pianifica audit', type: 'create', detail: 'Crea un audit e assegnalo a un auditor. L\'admin NON compila la checklist.', steps: ['Dalla certificazione con documenti approvati', 'Clicca "Pianifica audit"', 'Seleziona auditor, tipo, modalità, data', 'Conferma → l\'auditor troverà l\'audit nel suo pannello'] },
       { name: 'Rilascia certificato', type: 'action', detail: 'Rilascio consentito SOLO se tutti i 14 requisiti dell\'ultimo audit sono CONFORMI (C). Se ci sono PC o NC, l\'organizzazione deve fare azioni correttive e sarà pianificato un nuovo audit.', steps: ['Dopo audit completato', 'Se tutti 14 requisiti C → banner verde "Audit superato" → 🏆 Rilascia certificato', 'Se ≥1 PC o NC → banner rosso → 📋 Pianifica nuovo audit oppure ❌ Respingi', 'Certificato generato con scadenza 3 anni', 'Organizzazione diventa automaticamente "Attiva"'] },
       { name: 'Scarica Certificato PDF', type: 'download', detail: 'Scarica il certificato ufficiale in PDF.' },
@@ -197,16 +195,9 @@ const DATA = {
       { name: 'Visualizza checklist', type: 'read', detail: 'Modalità sola lettura. Intestazione con nome organizzazione, auditor assegnato, tipo/modalità audit e contatori C/PC/NC/NA. Banner "🔒 Solo l\'auditor assegnato può compilare".', steps: ['Clicca "Dettagli" nella lista audit', 'Vedi intestazione con auditor assegnato', 'Vedi tutte le valutazioni (non modificabili)', 'Nessun pulsante Salva o Completa', '"← Torna alla lista audit" per tornare indietro'] },
       { name: 'Scarica Report Audit PDF', type: 'download', detail: 'PDF con checklist completa, valutazioni e azioni correttive.' },
     ]},
-    { section: '👥 Beneficiari e 📋 Attività', actions: [
+    { section: '👥 Beneficiari e 📋 Attività (sola lettura)', actions: [
       { name: 'Lista beneficiari', type: 'read', detail: 'Tutti i beneficiari di tutte le organizzazioni. Codice cliccabile → popup dettaglio con dati anagrafici, contatori (attività e ore totali) e tabella attività correlate.' },
-      { name: 'Nuovo beneficiario', type: 'create', detail: 'Registra un nuovo beneficiario con codice, tipologia, ente inviante. L\'admin seleziona l\'organizzazione da un dropdown.', steps: ['Clicca "+ Nuovo beneficiario"', 'Seleziona organizzazione (dropdown con org attive)', 'Inserisci codice, tipologia, ente', 'Data inizio, note', 'Crea'] },
-      { name: 'Cambia stato beneficiario', type: 'action', detail: 'Picklist direttamente nella tabella: ✅ Attivo, 🏁 Completato, ⚠️ Sospeso, ❌ Abbandonato. Aggiornamento immediato.' },
-      { name: 'Modifica beneficiario', type: 'update', detail: 'Modifica tipologia, ente inviante, data inizio, note (tramite pulsante ✏️).' },
-      { name: 'Elimina beneficiario', type: 'delete', detail: 'Solo se non ha attività collegate.' },
       { name: 'Lista attività', type: 'read', detail: 'Tutte le attività con durata in ore. Codice beneficiario cliccabile → popup dettaglio.' },
-      { name: 'Registra attività', type: 'create', detail: 'Beneficiario obbligatorio. L\'admin seleziona organizzazione, poi il dropdown beneficiari si aggiorna.', steps: ['Clicca "+ Registra attività"', 'Seleziona organizzazione (dropdown)', 'Seleziona beneficiario (obbligatorio, filtrato per org)', 'Data, durata in ore (es. 2, 1.5)', 'Tipo servizio, descrizione, note', 'Registra'] },
-      { name: 'Modifica attività', type: 'update', detail: 'Modifica qualsiasi campo.' },
-      { name: 'Elimina attività', type: 'delete', detail: 'Eliminazione con conferma.' },
     ]},
     { section: '👤 Utenti e ⭐ Recensioni', actions: [
       { name: 'Lista utenti', type: 'read', detail: 'Tutti gli utenti con ruolo, organizzazione, stato e ultimo accesso.' },
@@ -250,13 +241,16 @@ const DATA = {
       { name: 'Dashboard', type: 'read', detail: 'Statistiche della propria organizzazione.' },
     ]},
     { section: '🏠 Organizzazione', actions: [
-      { name: 'Visualizza organizzazione', type: 'read', detail: 'Dati della propria organizzazione.' },
+      { name: 'Crea organizzazione', type: 'create', detail: 'Se non hai ancora un\'organizzazione, crea la tua con upload obbligatorio di almeno un documento di legittimazione (visura camerale, statuto, delega, nomina).', steps: ['Vai su 🏠 Organizzazioni', 'Clicca "Crea la tua organizzazione"', 'Compila tutti i campi (nome, forma giuridica, indirizzo, provincia, ecc.)', 'Sezione Documenti di legittimazione: seleziona tipo e carica PDF', 'Almeno 1 documento obbligatorio', 'Clicca "Crea" → stato "In attesa di verifica AICARE"'] },
+      { name: 'Visualizza organizzazione', type: 'read', detail: 'Dati della propria organizzazione con sezione documenti di legittimazione.' },
       { name: 'Modifica organizzazione', type: 'update', detail: 'Modifica dati, provincia (picklist), regione auto, email validata, telefono con prefisso.' },
+      { name: 'Carica documenti aggiuntivi', type: 'create', detail: 'Aggiungi altri documenti di legittimazione dal dettaglio organizzazione (finché è in attesa).' },
     ]},
     { section: '📜 Certificazioni', actions: [
-      { name: 'Richiedi certificazione', type: 'create', detail: 'Invia domanda con upload documenti PDF.', steps: ['Vai su Certificazioni', 'Clicca "Richiedi certificazione"', 'Seleziona file PDF da allegare', 'Verifica lista file', 'Invia domanda'] },
+      { name: 'Richiedi certificazione', type: 'create', detail: 'Disponibile SOLO dopo l\'attivazione dell\'organizzazione da parte di AICARE. Se l\'org è "In attesa", viene mostrato un avviso.', steps: ['Vai su Certificazioni', 'Clicca "Richiedi certificazione"', 'Seleziona file PDF da allegare', 'Verifica lista file', 'Invia domanda'] },
       { name: 'Carica documenti aggiuntivi', type: 'create', detail: 'Aggiungi PDF dalla pagina Dettaglio durante la revisione.' },
       { name: 'Stato certificazione', type: 'read', detail: 'Segui lo stato della domanda: Inviata → Revisione → Audit → Rilascio. Badge rosso su 📜 Certificazioni se la domanda è stata respinta o richiede attenzione.' },
+      { name: 'Visualizza checklist audit', type: 'read', detail: 'Accedi alla checklist dell\'audit in sola lettura dal dettaglio certificazione. Pulsante "← Torna alla certificazione" per tornare indietro.' },
       { name: 'Scarica Certificato PDF', type: 'download', detail: 'Scarica il certificato rilasciato.' },
     ]},
     { section: '👥 Beneficiari e 📋 Attività', actions: [
@@ -280,12 +274,15 @@ const DATA = {
       { name: 'Visualizza organizzazione', type: 'read', detail: 'Dati della propria organizzazione.' },
       { name: 'Modifica organizzazione', type: 'update', detail: 'Modifica dati organizzazione.' },
     ]},
+    { section: '📜 Certificazioni', actions: [
+      { name: 'Carica documenti cert.', type: 'create', detail: 'Carica PDF per certificazione durante la revisione (non può richiedere la certificazione — solo org admin).' },
+      { name: 'Visualizza checklist audit', type: 'read', detail: 'Accedi alla checklist dell\'audit in sola lettura.' },
+    ]},
     { section: '👥 Beneficiari e 📋 Attività', actions: [
       { name: 'Gestisci beneficiari', type: 'create', detail: 'Aggiungi, modifica, elimina beneficiari. Codici cliccabili → popup dettaglio. Stato via picklist.' },
       { name: 'Registra attività', type: 'create', detail: 'Beneficiario obbligatorio (dropdown). Durata in ore.' },
       { name: 'Modifica attività', type: 'update', detail: 'Modifica qualsiasi campo dell\'attività.' },
       { name: 'Elimina attività', type: 'delete', detail: 'Elimina con conferma.' },
-      { name: 'Carica documenti cert.', type: 'create', detail: 'Carica PDF per certificazione durante la revisione.' },
     ]},
     { section: '🗂️ Altro', actions: [
       { name: 'Registro Pubblico', type: 'read', detail: 'Consulta il registro.' },
