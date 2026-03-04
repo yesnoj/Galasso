@@ -48,7 +48,7 @@ router.get('/activities/list', authenticate, (req, res) => {
 });
 
 // POST /api/beneficiaries/activities
-router.post('/activities', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
+router.post('/activities', authenticate, authorize('org_admin', 'org_operator'), (req, res) => {
   try {
     const { organizationId, beneficiaryId, activityDate, serviceType, durationMinutes, description, participantsCount, notes } = req.body;
     if (!organizationId || !activityDate || !description) {
@@ -69,7 +69,7 @@ router.post('/activities', authenticate, authorize('admin', 'org_admin', 'org_op
 });
 
 // PUT /api/beneficiaries/activities/:id
-router.put('/activities/:id', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
+router.put('/activities/:id', authenticate, authorize('org_admin', 'org_operator'), (req, res) => {
   try {
     const { activityDate, serviceType, durationMinutes, description, notes } = req.body;
     const db = getDb();
@@ -100,7 +100,7 @@ router.put('/activities/:id', authenticate, authorize('admin', 'org_admin', 'org
 });
 
 // DELETE /api/beneficiaries/activities/:id
-router.delete('/activities/:id', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
+router.delete('/activities/:id', authenticate, authorize('org_admin', 'org_operator'), (req, res) => {
   try {
     const db = getDb();
     const act = db.prepare('SELECT id FROM activity_logs WHERE id = ?').get(req.params.id);
@@ -180,7 +180,7 @@ router.get('/:id', authenticate, (req, res) => {
 });
 
 // POST /api/beneficiaries
-router.post('/', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
+router.post('/', authenticate, authorize('org_admin', 'org_operator'), (req, res) => {
   try {
     const { organizationId, code, targetType, referringEntity, referringContact, startDate, notes } = req.body;
     if (!organizationId || !code) return res.status(400).json({ error: 'organizationId e code obbligatori' });
@@ -203,7 +203,7 @@ router.post('/', authenticate, authorize('admin', 'org_admin', 'org_operator'), 
 });
 
 // PUT /api/beneficiaries/:id
-router.put('/:id', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
+router.put('/:id', authenticate, authorize('org_admin', 'org_operator'), (req, res) => {
   try {
     const { status, targetType, referringEntity, referringContact, startDate, notes } = req.body;
     const db = getDb();
@@ -223,7 +223,7 @@ router.put('/:id', authenticate, authorize('admin', 'org_admin', 'org_operator')
 });
 
 // DELETE /api/beneficiaries/:id
-router.delete('/:id', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
+router.delete('/:id', authenticate, authorize('org_admin', 'org_operator'), (req, res) => {
   try {
     const db = getDb();
     const ben = db.prepare('SELECT id FROM beneficiaries WHERE id = ?').get(req.params.id);
@@ -258,7 +258,7 @@ router.get('/:id/projects', authenticate, (req, res) => {
 });
 
 // POST /api/beneficiaries/:id/projects
-router.post('/:id/projects', authenticate, authorize('admin', 'org_admin', 'org_operator'), (req, res) => {
+router.post('/:id/projects', authenticate, authorize('org_admin', 'org_operator'), (req, res) => {
   try {
     const { title, objectives, activitiesPlanned, startDate, expectedEndDate } = req.body;
     if (!title) return res.status(400).json({ error: 'Titolo obbligatorio' });

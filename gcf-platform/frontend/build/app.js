@@ -1644,7 +1644,7 @@ async function renderBeneficiaries() {
   const bens = await api('/beneficiaries');
   if (!bens) return;
 
-  const canAdd = ['admin', 'org_admin', 'org_operator'].includes(state.user.role);
+  const canAdd = ['org_admin', 'org_operator'].includes(state.user.role);
 
   $('#page-content').innerHTML = `
     ${canAdd ? '<button class="btn btn-primary mb-2" onclick="showAddBeneficiaryModal()">+ Nuovo beneficiario</button>' : ''}
@@ -1812,7 +1812,7 @@ async function renderActivities() {
   const activities = await api('/beneficiaries/activities/list');
   if (!activities) return;
 
-  const canAdd = ['admin', 'org_admin', 'org_operator'].includes(state.user.role);
+  const canAdd = ['org_admin', 'org_operator'].includes(state.user.role);
 
   $('#page-content').innerHTML = `
     ${canAdd ? '<button class="btn btn-primary mb-2" onclick="showAddActivityModal()">+ Registra attività</button>' : ''}
