@@ -1161,6 +1161,9 @@ async function renderCertificationDetail(id) {
   const uploadBtn = canUploadMore ? `<button class="btn btn-secondary mt-2" onclick="uploadAdditionalDoc('${id}')">📎 Carica documento</button>` : '';
 
   $('#page-content').innerHTML = `
+    <div style="margin-bottom:12px">
+      <button class="btn btn-secondary btn-sm" onclick="navigate('certifications')">← Torna alle certificazioni</button>
+    </div>
     <div class="card mb-2">
       <div class="card-header"><h3>Certificazione ${cert.cert_number || ''}</h3></div>
       <div class="card-body">
@@ -2191,6 +2194,9 @@ async function renderOrganizationDetail(id) {
   const isOwner = ['org_admin','org_operator'].includes(state.user.role) && state.user.organization?.id === id;
 
   $('#page-content').innerHTML = `
+    <div style="margin-bottom:12px">
+      <button class="btn btn-secondary btn-sm" onclick="navigate('organizations')">← Torna alle organizzazioni</button>
+    </div>
     ${org.status === 'pending' && isOwner ? `
       <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:14px;color:#856404">
         ⏳ <strong>Organizzazione in attesa di verifica</strong> — AICARE sta verificando i documenti di legittimazione. Riceverai una notifica quando l'organizzazione verrà attivata.
@@ -2522,6 +2528,9 @@ async function renderRegistryDetail(id) {
   if (!org) return;
 
   $('#page-content').innerHTML = `
+    <div style="margin-bottom:12px">
+      <button class="btn btn-secondary btn-sm" onclick="navigate('registry')">← Torna al registro</button>
+    </div>
     <div class="card mb-2">
       <div class="card-header" style="background:linear-gradient(135deg,#1a3d17,#2d5a27);color:white;border-radius:8px 8px 0 0">
         <h3>${sanitize(org.name)}</h3>
