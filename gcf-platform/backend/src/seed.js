@@ -147,8 +147,6 @@ const certs = [
   { id: id(), orgIdx: 0, num: 'GCF-2025-001', status: 'issued', appDate: date(180), reviewDate: date(170), issueDate: date(120), expiryDate: date(-975), notes: 'Certificazione rilasciata dopo audit positivo' },
   { id: id(), orgIdx: 1, num: 'GCF-2025-002', status: 'issued', appDate: date(150), reviewDate: date(140), issueDate: date(90), expiryDate: date(-1005), notes: 'Eccellente conformità riscontrata' },
   { id: id(), orgIdx: 2, num: 'GCF-2026-003', status: 'audit_completed', appDate: date(60), reviewDate: date(50), issueDate: null, expiryDate: null, notes: 'In attesa di decisione finale dopo audit' },
-  { id: id(), orgIdx: 3, num: null, status: 'submitted', appDate: date(10), reviewDate: null, issueDate: null, expiryDate: null, notes: 'Domanda appena inviata' },
-  { id: id(), orgIdx: 4, num: null, status: 'doc_review', appDate: date(20), reviewDate: date(5), issueDate: null, expiryDate: null, notes: 'Documenti in fase di revisione' },
 ];
 
 certs.forEach(c => {
@@ -164,8 +162,6 @@ const audits = [
   { id: id(), certIdx: 0, auditor: 'auditor1', type: 'initial', mode: 'on_site', sched: date(130), compl: date(125), status: 'completed', c: 12, pc: 2, nc: 0, na: 0, outcome: 'conforming_with_actions', notes: 'Buona organizzazione. Requisiti 2.3 e 3.4 parzialmente conformi: politica inclusione da formalizzare e autodichiarazioni individuali da completare.', rep: 'Giuseppe Verdi' },
   { id: id(), certIdx: 1, auditor: 'auditor2', type: 'initial', mode: 'on_site', sched: date(100), compl: date(95), status: 'completed', c: 14, pc: 0, nc: 0, na: 0, outcome: 'conforming', notes: 'Piena conformità su tutti i 14 requisiti. Struttura molto ben organizzata con documentazione completa.', rep: 'Maria Conti' },
   { id: id(), certIdx: 2, auditor: 'auditor1', type: 'initial', mode: 'mixed', sched: date(40), compl: date(35), status: 'completed', c: 10, pc: 2, nc: 0, na: 2, outcome: 'conforming_with_actions', notes: 'Requisiti 3.3 e 4.2 parzialmente conformi. Procedure di tutela e organigramma da completare.', rep: 'Paolo Ferrara' },
-  { id: id(), certIdx: 0, auditor: 'auditor2', type: 'surveillance', mode: 'on_site', sched: date(5), compl: null, status: 'planned', c: 0, pc: 0, nc: 0, na: 0, outcome: null, notes: null, rep: null },
-  { id: id(), certIdx: 1, auditor: 'auditor1', type: 'surveillance', mode: 'remote', sched: date(-30), compl: null, status: 'planned', c: 0, pc: 0, nc: 0, na: 0, outcome: null, notes: null, rep: null },
 ];
 
 audits.forEach(a => {
@@ -414,12 +410,12 @@ console.log('');
 console.log('📊 Riepilogo:');
 console.log(`   👤 ${Object.keys(users).length} utenti`);
 console.log(`   🏠 ${orgs.length} organizzazioni (3 attive, 2 in attesa)`);
-console.log(`   📜 ${certs.length} certificazioni (2 rilasciate, 1 audit completato, 1 inviata, 1 in revisione)`);
-console.log(`   ✅ ${audits.length} audit (3 completati, 2 pianificati)`);
+console.log(`   📜 ${certs.length} certificazioni (2 rilasciate, 1 audit completato)`);
+console.log(`   ✅ ${audits.length} audit (3 completati)`);
 console.log(`   👥 ${beneficiaries.length} beneficiari`);
 console.log(`   📋 ~${db.prepare('SELECT COUNT(*) as n FROM activity_logs').get().n} attività`);
 console.log(`   ⭐ ${reviews.length} recensioni (6 pubblicate, 3 da moderare)`);
-console.log(`   🔧 4 azioni correttive aperte`);
+console.log(`   🔧 2 azioni correttive (Campo Sociale)`);
 console.log('');
 console.log('🔑 Credenziali di accesso:');
 console.log('   Admin:      admin@gcf.it / admin123');
