@@ -2432,8 +2432,10 @@ async function renderRegistry() {
   html += `
     <div class="card mb-2">
       <div class="card-body">
-        <div class="form-row-3">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
           <div class="form-group"><input id="reg-search" placeholder="Cerca organizzazione..." oninput="filterRegistry()"></div>
+          <div class="form-group"><select id="reg-region" onchange="filterRegistry()"><option value="">Tutte le regioni</option>
+            ${[...new Set(orgs.map(o => o.region).filter(Boolean))].sort().map(r => `<option value="${r}">${r}</option>`).join('')}</select></div>
           <div class="form-group"><select id="reg-service" onchange="filterRegistry()"><option value="">Tutti i servizi</option>
             ${Object.entries(SERVICE_LABELS).map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}</select></div>
           <div class="form-group"><select id="reg-target" onchange="filterRegistry()"><option value="">Tutte le utenze</option>
@@ -2448,6 +2450,7 @@ async function renderRegistry() {
     html += `
       <div class="org-card" data-services="${(org.services||[]).join(',')}" 
            data-targets="${(org.targets||[]).join(',')}" data-name="${(org.name||'').toLowerCase()}"
+           data-region="${org.region||''}"
            onclick="navigate('registry-detail','${org.id}')">
         <div class="org-card-header">
           <h3>${sanitize(org.name)}</h3>
@@ -2475,16 +2478,19 @@ async function renderRegistry() {
 
 function filterRegistry() {
   const search = ($('#reg-search')?.value || '').toLowerCase();
+  const region = $('#reg-region')?.value || '';
   const service = $('#reg-service')?.value || '';
   const target = $('#reg-target')?.value || '';
 
   $$('.org-card').forEach(card => {
     const name = card.dataset.name;
+    const cardRegion = card.dataset.region;
     const services = card.dataset.services;
     const targets = card.dataset.targets;
 
     let show = true;
     if (search && !name.includes(search)) show = false;
+    if (region && cardRegion !== region) show = false;
     if (service && !services.includes(service)) show = false;
     if (target && !targets.includes(target)) show = false;
 
