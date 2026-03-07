@@ -1879,6 +1879,10 @@ function showAddBeneficiaryModal() {
               ${Object.entries(TARGET_LABELS).map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}</select></div>
             <div class="form-group"><label>Ente inviante</label><input id="ben-entity" placeholder="es. CSM Piacenza"></div>
             <div class="form-group"><label>Contatto ente</label><input id="ben-contact" placeholder="es. Dott.ssa Bruni"></div>
+            <div class="form-group"><label>Ente referente collegato</label>
+              <select id="ben-ente-user"><option value="">Nessuno (ente non registrato)</option></select>
+              <div style="font-size:11px;color:#888;margin-top:4px">Collega un ente referente registrato sulla piattaforma per dargli accesso al monitoraggio</div>
+            </div>
             <div class="form-group"><label>Data inizio</label><input type="date" id="ben-start"></div>
             <div class="form-group"><label>Note</label><textarea id="ben-notes"></textarea></div>
             <button type="submit" class="btn btn-primary btn-block">Registra beneficiario</button>
@@ -1896,6 +1900,7 @@ function showAddBeneficiaryModal() {
         organizationId: orgId, code: $('#ben-code').value,
         targetType: $('#ben-target').value, referringEntity: $('#ben-entity').value,
         referringContact: $('#ben-contact').value,
+        enteUserId: $('#ben-ente-user').value || null,
         startDate: $('#ben-start').value, notes: $('#ben-notes').value
       })
     });
@@ -1913,6 +1918,16 @@ function showAddBeneficiaryModal() {
       }
     });
   }
+
+  // Popola dropdown enti referenti
+  api('/beneficiaries/enti-referenti').then(enti => {
+    if (enti && enti.length) {
+      const sel = document.getElementById('ben-ente-user');
+      if (sel) enti.forEach(e => {
+        sel.innerHTML += `<option value="${e.id}">${sanitize(e.last_name)} ${sanitize(e.first_name)} — ${sanitize(e.email)}</option>`;
+      });
+    }
+  });
 }
 
 async function showBeneficiaryDetail(benId) {
@@ -1938,6 +1953,7 @@ async function showBeneficiaryDetail(benId) {
           <div><strong>Ente inviante:</strong> ${sanitize(ben.referring_entity) || '—'}</div>
           <div><strong>Data inizio:</strong> ${formatDate(ben.start_date) || '—'}</div>
           <div><strong>Contatto ente:</strong> ${sanitize(ben.referring_contact) || '—'}</div>
+          ${ben.ente_referente_name ? `<div style="grid-column:1/-1"><strong>Ente referente collegato:</strong> ${sanitize(ben.ente_referente_name)}${ben.ente_referente_email ? ` (${sanitize(ben.ente_referente_email)})` : ''}</div>` : ''}
         </div>
         ${ben.notes ? `<div style="margin-bottom:16px;font-size:14px"><strong>Note:</strong> ${sanitize(ben.notes)}</div>` : ''}
 
@@ -2091,6 +2107,9 @@ async function showEditBeneficiaryModal(benId) {
   const b = bens?.find(x => x.id === benId);
   if (!b) { toast('Beneficiario non trovato', 'error'); return; }
 
+  // Carica enti referenti per il dropdown
+  const enti = await api('/beneficiaries/enti-referenti') || [];
+
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
@@ -2109,6 +2128,13 @@ async function showEditBeneficiaryModal(benId) {
       </div>
       <div class="form-group" style="margin-bottom:12px"><label>Contatto ente</label>
         <input id="eb-contact" value="${sanitize(b.referring_contact||'')}" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px">
+      </div>
+      <div class="form-group" style="margin-bottom:12px"><label>Ente referente collegato</label>
+        <select id="eb-ente-user" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px">
+          <option value="">Nessuno (ente non registrato)</option>
+          ${enti.map(e => `<option value="${e.id}" ${e.id===b.ente_user_id?'selected':''}>${sanitize(e.last_name)} ${sanitize(e.first_name)} — ${sanitize(e.email)}</option>`).join('')}
+        </select>
+        <div style="font-size:11px;color:#888;margin-top:4px">Collega un ente referente registrato per dargli accesso al monitoraggio</div>
       </div>
       <div class="form-group" style="margin-bottom:12px"><label>Data inizio</label>
         <input type="date" id="eb-start" value="${b.start_date||''}" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px">
@@ -2132,6 +2158,7 @@ async function showEditBeneficiaryModal(benId) {
       targetType: overlay.querySelector('#eb-target').value || null,
       referringEntity: overlay.querySelector('#eb-entity').value.trim() || null,
       referringContact: overlay.querySelector('#eb-contact').value.trim() || null,
+      enteUserId: overlay.querySelector('#eb-ente-user').value || null,
       startDate: overlay.querySelector('#eb-start').value || null,
       notes: overlay.querySelector('#eb-notes').value.trim() || null,
     };

@@ -90,6 +90,7 @@ async function main() {
     CREATE TABLE IF NOT EXISTS beneficiaries (
       id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, code TEXT NOT NULL,
       target_type TEXT, referring_entity TEXT, referring_contact TEXT,
+      ente_user_id TEXT,
       status TEXT DEFAULT 'active', start_date TEXT, end_date TEXT, notes TEXT,
       created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')),
       UNIQUE(organization_id, code)
@@ -155,6 +156,14 @@ async function main() {
   `);
 
   console.log('Tabelle create.');
+
+  // Migrazione: aggiunge ente_user_id se non esiste (per database esistenti)
+  try {
+    db.prepare("SELECT ente_user_id FROM beneficiaries LIMIT 1").get();
+  } catch (e) {
+    console.log('Migrazione: aggiunta colonna ente_user_id a beneficiaries...');
+    db.exec("ALTER TABLE beneficiaries ADD COLUMN ente_user_id TEXT");
+  }
 
   // Dati di riferimento — Standard SNM-AS (14 requisiti, 5 aree)
   const areas = [

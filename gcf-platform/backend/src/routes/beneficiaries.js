@@ -9,6 +9,25 @@ const { getDb } = require('../utils/database');
 const { authenticate, authorize } = require('../middleware/auth');
 
 // ============================================================
+// ENTI REFERENTI (lista per dropdown)
+// ============================================================
+
+// GET /api/beneficiaries/enti-referenti - Lista utenti ente_referente per dropdown
+router.get('/enti-referenti', authenticate, (req, res) => {
+  try {
+    const db = getDb();
+    const enti = db.prepare(`
+      SELECT id, first_name, last_name, email, phone
+      FROM users WHERE role = 'ente_referente' AND is_active = 1
+      ORDER BY last_name, first_name
+    `).all();
+    res.json(enti);
+  } catch (err) {
+    res.status(500).json({ error: 'Errore nel recupero enti referenti' });
+  }
+});
+
+// ============================================================
 // ATTIVITÀ (must be BEFORE /:id to avoid route conflict)
 // ============================================================
 
@@ -130,6 +149,10 @@ router.get('/', authenticate, (req, res) => {
       const org = db.prepare('SELECT id FROM organizations WHERE admin_user_id = ?').get(req.user.id);
       if (org) { where += ' AND b.organization_id = ?'; params.push(org.id); }
       else return res.json([]);
+    } else if (req.user.role === 'ente_referente') {
+      // L'ente referente vede solo i beneficiari collegati al proprio utente
+      where += ' AND b.ente_user_id = ?';
+      params.push(req.user.id);
     } else if (organization_id) {
       where += ' AND b.organization_id = ?';
       params.push(organization_id);
@@ -138,10 +161,12 @@ router.get('/', authenticate, (req, res) => {
 
     const beneficiaries = db.prepare(`
       SELECT b.*, o.name as org_name,
+        eu.first_name || ' ' || eu.last_name as ente_referente_name,
         (SELECT COUNT(*) FROM activity_logs al WHERE al.beneficiary_id = b.id) as activity_count,
         (SELECT MAX(al.activity_date) FROM activity_logs al WHERE al.beneficiary_id = b.id) as last_activity
       FROM beneficiaries b
       JOIN organizations o ON b.organization_id = o.id
+      LEFT JOIN users eu ON b.ente_user_id = eu.id
       WHERE ${where}
       ORDER BY b.created_at DESC
     `).all(...params);
@@ -157,9 +182,12 @@ router.get('/:id', authenticate, (req, res) => {
   try {
     const db = getDb();
     const ben = db.prepare(`
-      SELECT b.*, o.name as org_name
+      SELECT b.*, o.name as org_name,
+        eu.first_name || ' ' || eu.last_name as ente_referente_name,
+        eu.email as ente_referente_email
       FROM beneficiaries b
       JOIN organizations o ON b.organization_id = o.id
+      LEFT JOIN users eu ON b.ente_user_id = eu.id
       WHERE b.id = ?
     `).get(req.params.id);
     if (!ben) return res.status(404).json({ error: 'Beneficiario non trovato' });
@@ -183,16 +211,16 @@ router.get('/:id', authenticate, (req, res) => {
 // POST /api/beneficiaries
 router.post('/', authenticate, authorize('org_admin', 'org_operator'), (req, res) => {
   try {
-    const { organizationId, code, targetType, referringEntity, referringContact, startDate, notes } = req.body;
+    const { organizationId, code, targetType, referringEntity, referringContact, enteUserId, startDate, notes } = req.body;
     if (!organizationId || !code) return res.status(400).json({ error: 'organizationId e code obbligatori' });
 
     const db = getDb();
     const id = uuidv4();
 
     db.prepare(`
-      INSERT INTO beneficiaries (id, organization_id, code, target_type, referring_entity, referring_contact, start_date, notes, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
-    `).run(id, organizationId, code, targetType || null, referringEntity || null, referringContact || null, startDate || null, notes || null);
+      INSERT INTO beneficiaries (id, organization_id, code, target_type, referring_entity, referring_contact, ente_user_id, start_date, notes, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+    `).run(id, organizationId, code, targetType || null, referringEntity || null, referringContact || null, enteUserId || null, startDate || null, notes || null);
 
     res.status(201).json({ id, message: 'Beneficiario registrato' });
   } catch (err) {
@@ -206,16 +234,17 @@ router.post('/', authenticate, authorize('org_admin', 'org_operator'), (req, res
 // PUT /api/beneficiaries/:id
 router.put('/:id', authenticate, authorize('org_admin', 'org_operator'), (req, res) => {
   try {
-    const { status, targetType, referringEntity, referringContact, startDate, notes } = req.body;
+    const { status, targetType, referringEntity, referringContact, enteUserId, startDate, notes } = req.body;
     const db = getDb();
 
     db.prepare(`
       UPDATE beneficiaries SET 
         status = COALESCE(?, status), target_type = COALESCE(?, target_type),
         referring_entity = COALESCE(?, referring_entity), referring_contact = COALESCE(?, referring_contact),
+        ente_user_id = ?,
         start_date = COALESCE(?, start_date), notes = COALESCE(?, notes), updated_at = datetime('now')
       WHERE id = ?
-    `).run(status, targetType, referringEntity, referringContact, startDate, notes, req.params.id);
+    `).run(status, targetType, referringEntity, referringContact, enteUserId || null, startDate, notes, req.params.id);
 
     res.json({ message: 'Beneficiario aggiornato' });
   } catch (err) {

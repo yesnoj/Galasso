@@ -265,36 +265,37 @@ requirements.forEach(r => {
 console.log('👥 Creazione beneficiari...');
 
 // ===== BENEFICIARIES (solo per le 3 org attive) =====
-const insertBen = db.prepare(`INSERT INTO beneficiaries (id, organization_id, code, target_type, referring_entity, referring_contact, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+const insertBen = db.prepare(`INSERT INTO beneficiaries (id, organization_id, code, target_type, referring_entity, referring_contact, ente_user_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
 const beneficiaries = [
   // Org 1 — Terra Buona (5 beneficiari)
-  { id: id(), orgIdx: 0, code: 'TB-2025-001', type: 'salute_mentale', entity: 'CSM Piacenza', contact: 'Silvia Gallo', status: 'active', days: 150 },
-  { id: id(), orgIdx: 0, code: 'TB-2025-002', type: 'disabili', entity: 'AUSL Piacenza', contact: 'Dr. Bianchi', status: 'active', days: 120 },
-  { id: id(), orgIdx: 0, code: 'TB-2025-003', type: 'anziani', entity: 'Comune di Piacenza', contact: 'Ufficio Servizi Sociali', status: 'active', days: 90 },
-  { id: id(), orgIdx: 0, code: 'TB-2025-004', type: 'salute_mentale', entity: 'CSM Piacenza', contact: 'Silvia Gallo', status: 'completed', days: 200 },
-  { id: id(), orgIdx: 0, code: 'TB-2026-005', type: 'disabili', entity: 'Cooperativa Sociale Amici', contact: 'Responsabile area', status: 'active', days: 30 },
+  { id: id(), orgIdx: 0, code: 'TB-2025-001', type: 'salute_mentale', entity: 'CSM Piacenza', contact: 'Silvia Gallo', ente: 'ente1', status: 'active', days: 150 },
+  { id: id(), orgIdx: 0, code: 'TB-2025-002', type: 'disabili', entity: 'AUSL Piacenza', contact: 'Dr. Bianchi', ente: null, status: 'active', days: 120 },
+  { id: id(), orgIdx: 0, code: 'TB-2025-003', type: 'anziani', entity: 'Comune di Piacenza', contact: 'Ufficio Servizi Sociali', ente: null, status: 'active', days: 90 },
+  { id: id(), orgIdx: 0, code: 'TB-2025-004', type: 'salute_mentale', entity: 'CSM Piacenza', contact: 'Silvia Gallo', ente: 'ente1', status: 'completed', days: 200 },
+  { id: id(), orgIdx: 0, code: 'TB-2026-005', type: 'disabili', entity: 'Cooperativa Sociale Amici', contact: 'Responsabile area', ente: null, status: 'active', days: 30 },
 
   // Org 2 — Il Vigneto (4 beneficiari)
-  { id: id(), orgIdx: 1, code: 'VG-2025-001', type: 'dipendenze', entity: 'SerD Parma', contact: 'Dr.ssa Ferri', status: 'active', days: 180 },
-  { id: id(), orgIdx: 1, code: 'VG-2025-002', type: 'disabili', entity: 'AUSL Parma', contact: 'Servizio Disabilità', status: 'active', days: 140 },
-  { id: id(), orgIdx: 1, code: 'VG-2025-003', type: 'salute_mentale', entity: 'CSM Parma', contact: 'Roberto Fontana', status: 'active', days: 100 },
-  { id: id(), orgIdx: 1, code: 'VG-2025-004', type: 'dipendenze', entity: 'SerD Parma', contact: 'Dr.ssa Ferri', status: 'suspended', days: 160 },
+  { id: id(), orgIdx: 1, code: 'VG-2025-001', type: 'dipendenze', entity: 'SerD Parma', contact: 'Dr.ssa Ferri', ente: null, status: 'active', days: 180 },
+  { id: id(), orgIdx: 1, code: 'VG-2025-002', type: 'disabili', entity: 'AUSL Parma', contact: 'Servizio Disabilità', ente: null, status: 'active', days: 140 },
+  { id: id(), orgIdx: 1, code: 'VG-2025-003', type: 'salute_mentale', entity: 'CSM Parma', contact: 'Roberto Fontana', ente: 'ente2', status: 'active', days: 100 },
+  { id: id(), orgIdx: 1, code: 'VG-2025-004', type: 'dipendenze', entity: 'SerD Parma', contact: 'Dr.ssa Ferri', ente: null, status: 'suspended', days: 160 },
 
   // Org 3 — Campo Sociale (3 beneficiari)
-  { id: id(), orgIdx: 2, code: 'CS-2025-001', type: 'minori', entity: 'Comune di Modena', contact: 'Servizi Educativi', status: 'active', days: 110 },
-  { id: id(), orgIdx: 2, code: 'CS-2025-002', type: 'giovani', entity: 'Centro per l\'Impiego MO', contact: 'Orientatore', status: 'active', days: 80 },
-  { id: id(), orgIdx: 2, code: 'CS-2026-003', type: 'immigrati', entity: 'Cooperativa Mediazione', contact: 'Karim El Fassi', status: 'active', days: 45 },
+  { id: id(), orgIdx: 2, code: 'CS-2025-001', type: 'minori', entity: 'Comune di Modena', contact: 'Servizi Educativi', ente: null, status: 'active', days: 110 },
+  { id: id(), orgIdx: 2, code: 'CS-2025-002', type: 'giovani', entity: 'Centro per l\'Impiego MO', contact: 'Orientatore', ente: null, status: 'active', days: 80 },
+  { id: id(), orgIdx: 2, code: 'CS-2026-003', type: 'immigrati', entity: 'Cooperativa Mediazione', contact: 'Karim El Fassi', ente: null, status: 'active', days: 45 },
 ];
 
 beneficiaries.forEach(b => {
-  insertBen.run(b.id, orgs[b.orgIdx].id, b.code, b.type, b.entity, b.contact, b.status, datetime(b.days));
+  const enteId = b.ente ? users[b.ente].id : null;
+  insertBen.run(b.id, orgs[b.orgIdx].id, b.code, b.type, b.entity, b.contact, enteId, b.status, datetime(b.days));
 });
 
 console.log('📋 Creazione attività...');
 
 // ===== ACTIVITIES (solo per le 3 org attive, ultimi 60 giorni) =====
-const insertAct = db.prepare(`INSERT INTO activity_logs (id, organization_id, beneficiary_id, activity_date, service_type, duration_minutes, description, is_group, operator_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+const insertAct = db.prepare(`INSERT INTO activity_logs (id, organization_id, beneficiary_id, activity_date, service_type, duration_minutes, description, participants_count, operator_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
 const activityDescs = {
   coterapia_piante: [
