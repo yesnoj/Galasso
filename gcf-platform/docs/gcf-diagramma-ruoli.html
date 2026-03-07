@@ -245,6 +245,7 @@ const DATA = {
       { name: 'Visualizza organizzazione', type: 'read', detail: 'Dati della propria organizzazione con sezione documenti di legittimazione.' },
       { name: 'Modifica organizzazione', type: 'update', detail: 'Modifica dati, provincia (picklist), regione auto, email validata, telefono con prefisso.' },
       { name: 'Carica documenti aggiuntivi', type: 'create', detail: 'Aggiungi altri documenti di legittimazione dal dettaglio organizzazione (finché è in attesa).' },
+      { name: 'Carica foto organizzazione', type: 'create', detail: 'Upload foto JPG/PNG/WebP (max 5MB, max 10 foto). La prima foto diventa automaticamente principale (⭐). Click per fullscreen. Le foto sono visibili anche nel registro pubblico.', steps: ['Vai al dettaglio organizzazione', 'Sezione "📷 Foto dell\'organizzazione"', 'Seleziona immagine e opzionalmente aggiungi didascalia', 'Clicca "📷 Carica foto"', 'Imposta foto principale con ⭐, elimina con 🗑️'] },
     ]},
     { section: '📜 Certificazioni', actions: [
       { name: 'Richiedi certificazione', type: 'create', detail: 'Disponibile SOLO dopo l\'attivazione dell\'organizzazione da parte di AICARE. Se l\'org è "In attesa", viene mostrato un avviso.', steps: ['Vai su Certificazioni', 'Clicca "Richiedi certificazione"', 'Seleziona file PDF da allegare', 'Verifica lista file', 'Invia domanda'] },
@@ -254,7 +255,7 @@ const DATA = {
       { name: 'Scarica Certificato PDF', type: 'download', detail: 'Scarica il certificato rilasciato.' },
     ]},
     { section: '👥 Beneficiari e 📋 Attività', actions: [
-      { name: 'Gestisci beneficiari', type: 'create', detail: 'Aggiungi, modifica, elimina beneficiari della propria organizzazione. Codici cliccabili → popup dettaglio. Stato via picklist (Attivo/Completato/Sospeso/Abbandonato).' },
+      { name: 'Gestisci beneficiari', type: 'create', detail: 'Aggiungi, modifica, elimina beneficiari della propria organizzazione. Codici cliccabili → popup dettaglio. Stato via picklist (Attivo/Completato/Sospeso/Abbandonato). Dropdown "Ente referente collegato" per associare un ente registrato sulla piattaforma e dargli accesso al monitoraggio del beneficiario.' },
       { name: 'Registra attività', type: 'create', detail: 'Beneficiario obbligatorio (dropdown auto-filtrato per organizzazione). Durata in ore (step 0.5).' },
       { name: 'Modifica attività', type: 'update', detail: 'Modifica durata, servizio, descrizione.' },
       { name: 'Elimina attività', type: 'delete', detail: 'Elimina attività con conferma.' },
@@ -295,7 +296,7 @@ const DATA = {
       { name: 'Dashboard', type: 'read', detail: 'Panoramica generale.' },
     ]},
     { section: '👥 Monitoraggio', actions: [
-      { name: 'Visualizza beneficiari', type: 'read', detail: 'Solo visualizzazione dei beneficiari associati. Nessuna modifica possibile.' },
+      { name: 'Visualizza beneficiari', type: 'read', detail: 'Visualizzazione in sola lettura dei beneficiari collegati al proprio utente. L\'ente vede SOLO i beneficiari che le organizzazioni hanno associato al suo profilo tramite il dropdown "Ente referente collegato" nella scheda beneficiario. Se non ci sono beneficiari collegati, la lista è vuota.' },
       { name: 'Crea report monitoraggio', type: 'create', detail: 'Report con periodo, note progresso, criticità, prossimi passi.' },
     ]},
     { section: '🗂️ Altro', actions: [

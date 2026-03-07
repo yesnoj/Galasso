@@ -418,6 +418,10 @@ SISTEMA
 | GET | `/organizations/:id/documents` | Lista documenti organizzazione | Admin/Org |
 | GET | `/organizations/:id/documents/:docId/download` | Scarica documento PDF | Admin/Org |
 | DELETE | `/organizations/:id/documents/:docId` | Elimina documento | Admin/Org |
+| POST | `/organizations/:id/images` | Upload foto organizzazione | Admin/Org Admin |
+| GET | `/organizations/:id/images` | Lista foto organizzazione | Pubblico |
+| PUT | `/organizations/:id/images/:imgId/primary` | Imposta foto principale | Admin/Org Admin |
+| DELETE | `/organizations/:id/images/:imgId` | Elimina foto | Admin/Org Admin |
 
 ### Certificazioni (`/api/certifications`)
 
@@ -450,7 +454,8 @@ SISTEMA
 
 | Metodo | Endpoint | Descrizione | Auth |
 |--------|----------|-------------|------|
-| GET | `/beneficiaries` | Lista beneficiari | ✅ |
+| GET | `/beneficiaries` | Lista beneficiari (filtrata per ruolo/ente) | ✅ |
+| GET | `/beneficiaries/enti-referenti` | Lista enti referenti per dropdown | ✅ |
 | GET | `/beneficiaries/:id` | Dettaglio beneficiario | ✅ |
 | POST | `/beneficiaries` | Crea beneficiario | Org Admin/Op |
 | PUT | `/beneficiaries/:id` | Modifica beneficiario | Org Admin/Op |
@@ -490,7 +495,7 @@ SISTEMA
 | GET | `/registry/regions` | Regioni con organizzazioni | No |
 | GET | `/registry/search` | Ricerca organizzazioni | No |
 
-**Totale: 59 endpoint**
+**Totale: 64 endpoint**
 
 ---
 
@@ -503,6 +508,7 @@ SISTEMA
 | Modificare organizzazione | ✅ | ❌ | ✅* | ✅* | ❌ |
 | Cambiare stato organizzazione | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Upload documenti legittimazione | ❌ | ❌ | ✅* | ❌ | ❌ |
+| Upload foto organizzazione | ✅ | ❌ | ✅* | ❌ | ❌ |
 | Verificare documenti organizzazione | ✅ | ❌ | ✅* | ❌ | ❌ |
 | Richiedere certificazione | ❌ | ❌ | ✅* | ❌ | ❌ |
 | Upload documenti certificazione | ❌ | ❌ | ✅* | ✅* | ❌ |
@@ -511,13 +517,13 @@ SISTEMA
 | Compilare checklist audit | ❌ | ✅ | ❌ | ❌ | ❌ |
 | Visualizzare checklist (sola lettura) | ✅ | — | ✅* | ✅* | ❌ |
 | Rilasciare certificato | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Beneficiari (CRUD) | 👁 | ❌ | ✅* | ✅* | 👁 |
+| Beneficiari (CRUD) | 👁 | ❌ | ✅* | ✅* | 👁† |
 | Attività (CRUD) | 👁 | ❌ | ✅* | ✅* | ❌ |
 | Gestione utenti | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Moderazione recensioni | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Registro pubblico | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-*\* = solo per la propria organizzazione. 👁 = sola lettura.*
+*\* = solo per la propria organizzazione. 👁 = sola lettura. † = solo beneficiari collegati al proprio utente.*
 
 ---
 
@@ -618,7 +624,7 @@ Il file `seed.js` popola il database con dati realistici italiani:
 | Organizzazioni | 5 | 3 attive (certificate o in attesa rilascio), 2 in attesa di verifica |
 | Certificazioni | 3 | 2 rilasciate (14C), 1 audit completato (10C+2PC+2NA) |
 | Audit | 3 | 3 completati con valutazioni dettagliate su 14 requisiti |
-| Beneficiari | 12 | Con enti invianti realistici (CSM, SerD, Servizi Sociali) |
+| Beneficiari | 12 | Con enti invianti realistici (CSM, SerD, Servizi Sociali). 3 collegati a enti referenti registrati |
 | Attività | ~210 | Generate per 60 giorni, 6 tipologie di servizio |
 | Recensioni | 9 | 6 pubblicate, 3 da moderare |
 | Azioni correttive | 2 | Per Campo Sociale (req. 3.3 e 4.2 parzialmente conformi) |
@@ -628,13 +634,16 @@ Il file `seed.js` popola il database con dati realistici italiani:
 **Locale (sviluppo sul Mac):**
 ```bash
 cd backend
-node seed.js
+node src/seed.js
 ```
 
 **Docker (NAS / produzione):**
 ```bash
-docker cp backend/seed.js gcf-platform:/app/seed.js
-docker exec gcf-platform node /app/seed.js
+docker cp backend/src/seed.js gcf-platform:/app/src/seed.js
+docker exec gcf-platform rm /app/db/gcf.sqlite /app/db/.seeded
+docker exec gcf-platform node /app/src/init-db.js
+docker exec gcf-platform node /app/src/seed.js
+docker restart gcf-platform
 ```
 
 > ⚠️ Il seed svuota le tabelle dati e le ripopola. Le tabelle di riferimento (aree, requisiti) non vengono toccate. Eseguire solo per demo/test, non su dati reali.
@@ -674,6 +683,40 @@ docker exec gcf-platform node /app/seed.js
 ---
 
 ## Changelog
+
+### v2.1 — Marzo 2026 (Foto, Ente Referente, Validazioni)
+
+**Galleria foto organizzazione**
+- Upload immagini JPG/PNG/WebP (max 5MB, max 10 per organizzazione)
+- Galleria griglia responsive nel dettaglio organizzazione
+- Foto principale con badge ⭐ (impostabile dall'org admin)
+- Visualizzazione fullscreen al click
+- Galleria visibile anche nel **registro pubblico**
+- Immagini salvate in `uploads/images/` e incluse nel backup automatico
+
+**Ente referente collegato ai beneficiari**
+- Nuovo campo `ente_user_id` nella tabella beneficiari
+- Dropdown "Ente referente collegato" nel form creazione e modifica beneficiario
+- L'ente referente accede e vede **solo** i beneficiari collegati al suo utente
+- Nome ente referente visibile nel popup dettaglio beneficiario
+- Migrazione automatica per DB esistenti (ALTER TABLE)
+
+**Validazione Codice Fiscale e Partita IVA**
+- Validazione completa C.F. (16 caratteri, algoritmo ufficiale con carattere di controllo)
+- Validazione completa P.IVA (11 cifre, algoritmo Luhn modificato)
+- Controllo real-time on blur (bordo rosso + messaggio errore)
+- Blocco invio form se non validi
+- Validazione anche lato backend (400 Bad Request)
+
+**Navigazione migliorata**
+- Pulsante "← Torna alle organizzazioni" nel dettaglio organizzazione
+- Pulsante "← Torna alle certificazioni" nel dettaglio certificazione
+- Pulsante "← Torna al registro" nel dettaglio registro pubblico (utenti loggati)
+- Filtro **regione** aggiunto al registro pubblico
+
+**Miglioramenti UI**
+- Telefono: prefisso e numero sulla stessa riga
+- Campo "Contatto ente" aggiunto nel form creazione beneficiario
 
 ### v2.0 — Marzo 2026 (Upgrade SNM-AS)
 
