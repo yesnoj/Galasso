@@ -29,6 +29,29 @@ const orgUpload = multer({
   }
 });
 
+// Configure multer for organization image uploads
+const imgUploadDir = process.env.UPLOAD_DIR 
+  ? path.join(process.env.UPLOAD_DIR, 'images')
+  : path.join(__dirname, '..', '..', 'uploads', 'images');
+if (!fs.existsSync(imgUploadDir)) fs.mkdirSync(imgUploadDir, { recursive: true });
+
+const imgStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, imgUploadDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+    cb(null, `${Date.now()}-${uuidv4().slice(0,8)}${ext}`);
+  }
+});
+const imgUpload = multer({
+  storage: imgStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB per immagine
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Solo immagini JPG, PNG o WebP ammesse'));
+  }
+});
+
 // ===== Validazione Codice Fiscale e Partita IVA =====
 function isValidCodiceFiscale(cf) {
   if (!cf) return true;
@@ -436,6 +459,111 @@ router.delete('/:id/documents/:docId', authenticate, authorize('admin', 'org_adm
     res.json({ message: 'Documento eliminato' });
   } catch (err) {
     res.status(500).json({ error: 'Errore eliminazione documento' });
+  }
+});
+
+// ===== IMMAGINI ORGANIZZAZIONE =====
+
+// POST /api/organizations/:id/images - Upload immagine
+router.post('/:id/images', authenticate, authorize('admin', 'org_admin'), (req, res) => {
+  imgUpload.single('image')(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ error: 'Immagine troppo grande (max 5MB)' });
+      return res.status(500).json({ error: err.message || 'Errore upload' });
+    }
+    if (!req.file) return res.status(400).json({ error: 'Nessuna immagine caricata' });
+
+    try {
+      const db = getDb();
+      const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(req.params.id);
+      if (!org) return res.status(404).json({ error: 'Organizzazione non trovata' });
+      if (req.user.role !== 'admin' && org.admin_user_id !== req.user.id) {
+        return res.status(403).json({ error: 'Non autorizzato' });
+      }
+
+      // Max 10 immagini per organizzazione
+      const count = db.prepare('SELECT COUNT(*) as n FROM organization_images WHERE organization_id = ?').get(req.params.id).n;
+      if (count >= 10) {
+        fs.unlinkSync(path.join(imgUploadDir, req.file.filename));
+        return res.status(400).json({ error: 'Massimo 10 immagini per organizzazione' });
+      }
+
+      const caption = req.body.caption || null;
+      const isPrimary = count === 0 ? 1 : 0; // Prima immagine = primaria
+      const imgId = uuidv4();
+
+      db.prepare(`
+        INSERT INTO organization_images (id, organization_id, file_path, caption, is_primary)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(imgId, req.params.id, req.file.filename, caption, isPrimary);
+
+      res.status(201).json({ id: imgId, file_path: req.file.filename, message: 'Immagine caricata' });
+    } catch (dbErr) {
+      console.error('Org image upload error:', dbErr);
+      res.status(500).json({ error: 'Errore salvataggio immagine' });
+    }
+  });
+});
+
+// GET /api/organizations/:id/images - Lista immagini
+router.get('/:id/images', (req, res) => {
+  try {
+    const db = getDb();
+    const images = db.prepare(`
+      SELECT * FROM organization_images WHERE organization_id = ? ORDER BY is_primary DESC, created_at ASC
+    `).all(req.params.id);
+    res.json(images);
+  } catch (err) {
+    res.status(500).json({ error: 'Errore recupero immagini' });
+  }
+});
+
+// PUT /api/organizations/:id/images/:imgId/primary - Imposta come primaria
+router.put('/:id/images/:imgId/primary', authenticate, authorize('admin', 'org_admin'), (req, res) => {
+  try {
+    const db = getDb();
+    const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(req.params.id);
+    if (!org) return res.status(404).json({ error: 'Organizzazione non trovata' });
+    if (req.user.role !== 'admin' && org.admin_user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Non autorizzato' });
+    }
+
+    // Reset tutte, poi imposta la selezionata
+    db.prepare('UPDATE organization_images SET is_primary = 0 WHERE organization_id = ?').run(req.params.id);
+    db.prepare('UPDATE organization_images SET is_primary = 1 WHERE id = ? AND organization_id = ?').run(req.params.imgId, req.params.id);
+    res.json({ message: 'Immagine primaria aggiornata' });
+  } catch (err) {
+    res.status(500).json({ error: 'Errore aggiornamento immagine' });
+  }
+});
+
+// DELETE /api/organizations/:id/images/:imgId - Elimina immagine
+router.delete('/:id/images/:imgId', authenticate, authorize('admin', 'org_admin'), (req, res) => {
+  try {
+    const db = getDb();
+    const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(req.params.id);
+    if (!org) return res.status(404).json({ error: 'Organizzazione non trovata' });
+    if (req.user.role !== 'admin' && org.admin_user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Non autorizzato' });
+    }
+
+    const img = db.prepare('SELECT * FROM organization_images WHERE id = ? AND organization_id = ?').get(req.params.imgId, req.params.id);
+    if (!img) return res.status(404).json({ error: 'Immagine non trovata' });
+
+    const filePath = path.join(imgUploadDir, img.file_path);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    db.prepare('DELETE FROM organization_images WHERE id = ?').run(req.params.imgId);
+
+    // Se era primaria, rendi primaria la prima rimasta
+    if (img.is_primary) {
+      const first = db.prepare('SELECT id FROM organization_images WHERE organization_id = ? ORDER BY created_at ASC LIMIT 1').get(req.params.id);
+      if (first) db.prepare('UPDATE organization_images SET is_primary = 1 WHERE id = ?').run(first.id);
+    }
+
+    res.json({ message: 'Immagine eliminata' });
+  } catch (err) {
+    res.status(500).json({ error: 'Errore eliminazione immagine' });
   }
 });
 

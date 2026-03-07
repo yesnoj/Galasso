@@ -2227,9 +2227,14 @@ async function renderOrganizationDetail(id) {
     try { orgDocs = await api(`/organizations/${id}/documents`) || []; } catch(e) {}
   }
 
+  // Load org images
+  let orgImages = [];
+  try { orgImages = await api(`/organizations/${id}/images`) || []; } catch(e) {}
+
   const DOC_TYPE_LABELS = { visura_camerale: 'Visura camerale', statuto: 'Statuto / Atto costitutivo', delega: 'Delega', nomina: 'Nomina / Incarico', altro: 'Altro' };
   const isAdmin = state.user.role === 'admin';
   const isOwner = ['org_admin','org_operator'].includes(state.user.role) && state.user.organization?.id === id;
+  const canManageImages = isAdmin || (state.user.role === 'org_admin' && state.user.organization?.id === id);
 
   $('#page-content').innerHTML = `
     <div style="margin-bottom:12px">
@@ -2270,6 +2275,46 @@ async function renderOrganizationDetail(id) {
         </div>
       </div>
     </div>
+
+    ${orgImages.length > 0 || canManageImages ? `
+    <div class="card mb-2">
+      <div class="card-header"><h3>📷 Foto dell'organizzazione (${orgImages.length})</h3></div>
+      <div class="card-body">
+        ${orgImages.length > 0 ? `
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:${canManageImages ? '16px' : '0'}">
+            ${orgImages.map(img => `
+              <div style="position:relative;border-radius:8px;overflow:hidden;border:1px solid #e0e0e0;background:#f5f5f5">
+                <img src="/uploads/images/${img.file_path}" alt="${sanitize(img.caption || 'Foto organizzazione')}" 
+                  style="width:100%;height:180px;object-fit:cover;cursor:pointer;display:block" 
+                  onclick="showImageFullscreen('/uploads/images/${img.file_path}','${sanitize(img.caption || '')}')">
+                ${img.is_primary ? '<div style="position:absolute;top:6px;left:6px;background:#2e7d32;color:white;font-size:11px;padding:2px 8px;border-radius:12px">⭐ Principale</div>' : ''}
+                ${img.caption ? `<div style="padding:6px 10px;font-size:13px;color:#555;border-top:1px solid #eee">${sanitize(img.caption)}</div>` : ''}
+                ${canManageImages ? `
+                  <div style="position:absolute;top:6px;right:6px;display:flex;gap:4px">
+                    ${!img.is_primary ? `<button class="btn btn-secondary btn-sm" style="padding:2px 6px;font-size:11px" onclick="event.stopPropagation();setOrgImagePrimary('${id}','${img.id}')" title="Imposta come principale">⭐</button>` : ''}
+                    <button class="btn btn-danger btn-sm" style="padding:2px 6px;font-size:11px" onclick="event.stopPropagation();deleteOrgImage('${id}','${img.id}')" title="Elimina">🗑️</button>
+                  </div>
+                ` : ''}
+              </div>
+            `).join('')}
+          </div>
+        ` : '<p class="text-muted" style="margin-bottom:12px">Nessuna foto caricata</p>'}
+        ${canManageImages && orgImages.length < 10 ? `
+          <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;${orgImages.length > 0 ? 'padding-top:12px;border-top:1px solid #eee' : ''}">
+            <div class="form-group" style="margin:0;flex:2;min-width:200px">
+              <label style="font-size:13px">Immagine (JPG, PNG, WebP — max 5MB)</label>
+              <input type="file" id="org-img-file" accept="image/jpeg,image/png,image/webp" style="font-size:13px">
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:150px">
+              <label style="font-size:13px">Didascalia (opzionale)</label>
+              <input type="text" id="org-img-caption" placeholder="es. Vista dell'orto" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;width:100%">
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="uploadOrgImage('${id}')">📷 Carica foto</button>
+          </div>
+        ` : orgImages.length >= 10 ? '<p class="text-sm text-muted">Raggiunto il limite massimo di 10 foto</p>' : ''}
+      </div>
+    </div>
+    ` : ''}
 
     ${canSeeDocs ? `
     <div class="card mb-2">
@@ -2394,6 +2439,54 @@ async function uploadOrgDocFromDetail(orgId) {
     if (resp.ok) { toast('Documento caricato!', 'success'); renderOrganizationDetail(orgId); }
     else { const err = await resp.json(); toast(err.error || 'Errore upload', 'error'); }
   } catch(e) { toast('Errore nel caricamento', 'error'); }
+}
+
+// ===== Org Image Helpers =====
+async function uploadOrgImage(orgId) {
+  const fileInput = document.getElementById('org-img-file');
+  const captionInput = document.getElementById('org-img-caption');
+  if (!fileInput || !fileInput.files.length) { toast('Seleziona un\'immagine', 'error'); return; }
+  const file = fileInput.files[0];
+  if (!['image/jpeg','image/png','image/webp'].includes(file.type)) { toast('Solo immagini JPG, PNG o WebP', 'error'); return; }
+  if (file.size > 5 * 1024 * 1024) { toast('Immagine troppo grande (max 5MB)', 'error'); return; }
+
+  const formData = new FormData();
+  formData.append('image', file);
+  if (captionInput?.value.trim()) formData.append('caption', captionInput.value.trim());
+
+  try {
+    const resp = await fetch(`${API}/organizations/${orgId}/images`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${state.token}` },
+      body: formData
+    });
+    if (resp.ok) { toast('Foto caricata!', 'success'); renderOrganizationDetail(orgId); }
+    else { const err = await resp.json(); toast(err.error || 'Errore upload', 'error'); }
+  } catch(e) { toast('Errore nel caricamento', 'error'); }
+}
+
+function deleteOrgImage(orgId, imgId) {
+  showConfirmModal('Eliminare foto?', 'Sei sicuro di voler eliminare questa foto?', async () => {
+    const result = await api(`/organizations/${orgId}/images/${imgId}`, { method: 'DELETE' });
+    if (result) { toast('Foto eliminata', 'success'); renderOrganizationDetail(orgId); }
+  });
+}
+
+async function setOrgImagePrimary(orgId, imgId) {
+  const result = await api(`/organizations/${orgId}/images/${imgId}/primary`, { method: 'PUT' });
+  if (result) { toast('Foto principale aggiornata', 'success'); renderOrganizationDetail(orgId); }
+}
+
+function showImageFullscreen(src, caption) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer';
+  overlay.onclick = () => overlay.remove();
+  overlay.innerHTML = `
+    <img src="${src}" style="max-width:95%;max-height:85vh;object-fit:contain;border-radius:8px;box-shadow:0 4px 30px rgba(0,0,0,0.5)">
+    ${caption ? `<p style="color:white;margin-top:12px;font-size:16px;text-align:center">${sanitize(caption)}</p>` : ''}
+    <button style="position:absolute;top:20px;right:20px;background:rgba(255,255,255,0.2);border:none;color:white;font-size:24px;width:44px;height:44px;border-radius:50%;cursor:pointer">✕</button>
+  `;
+  document.body.appendChild(overlay);
 }
 
 // ============================================================
@@ -2590,6 +2683,22 @@ async function renderRegistryDetail(id) {
         </div>
       </div>
     </div>
+
+    ${(org.images||[]).length > 0 ? `
+    <div class="card mb-2">
+      <div class="card-header"><h3>📷 Foto</h3></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+          ${org.images.map(img => `
+            <div style="border-radius:8px;overflow:hidden;border:1px solid #e0e0e0;background:#f5f5f5;cursor:pointer" onclick="showImageFullscreen('/uploads/images/${img.file_path}','${sanitize(img.caption || '')}')">
+              <img src="/uploads/images/${img.file_path}" alt="${sanitize(img.caption || 'Foto')}" style="width:100%;height:180px;object-fit:cover;display:block">
+              ${img.caption ? `<div style="padding:6px 10px;font-size:13px;color:#555">${sanitize(img.caption)}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+    ` : ''}
 
     <div class="form-row mb-2">
       <div class="card">

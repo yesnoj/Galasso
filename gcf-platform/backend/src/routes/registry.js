@@ -174,8 +174,9 @@ router.get('/:id', (req, res) => {
     const targets = db.prepare('SELECT target_type, notes FROM organization_target_users WHERE organization_id = ?').all(org.id);
     const reviews = db.prepare('SELECT author_name, author_role, rating, comment, created_at FROM reviews WHERE organization_id = ? AND is_published = 1 ORDER BY created_at DESC').all(org.id);
     const events = db.prepare("SELECT * FROM events WHERE organization_id = ? AND event_date >= date('now') ORDER BY event_date LIMIT 5").all(org.id);
+    const images = db.prepare("SELECT id, file_path, caption, is_primary FROM organization_images WHERE organization_id = ? ORDER BY is_primary DESC, created_at ASC").all(org.id);
 
-    res.json({ ...org, services, targets, reviews, events });
+    res.json({ ...org, services, targets, reviews, events, images });
   } catch (err) {
     res.status(500).json({ error: 'Errore nel recupero dettaglio' });
   }
