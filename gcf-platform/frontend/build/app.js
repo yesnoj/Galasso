@@ -818,8 +818,10 @@ async function renderOrganizationEdit(id) {
               `<option value="${v}" ${org?.legal_form===v?'selected':''}>${l}</option>`).join('')}</select></div>
         </div>
         <div class="form-row-3">
-          <div class="form-group"><label>Codice fiscale</label><input id="org-tax" value="${org?.tax_code||''}"></div>
-          <div class="form-group"><label>P.IVA</label><input id="org-vat" value="${org?.vat_number||''}"></div>
+          <div class="form-group"><label>Codice fiscale</label><input id="org-tax" value="${org?.tax_code||''}" maxlength="16" style="text-transform:uppercase">
+            <div id="org-tax-err" style="color:#d32f2f;font-size:12px;display:none;margin-top:4px">Codice fiscale non valido</div></div>
+          <div class="form-group"><label>P.IVA</label><input id="org-vat" value="${org?.vat_number||''}" maxlength="11">
+            <div id="org-vat-err" style="color:#d32f2f;font-size:12px;display:none;margin-top:4px">Partita IVA non valida</div></div>
           <div class="form-group"><label>Telefono</label>${phoneInputHtml('org-phone', org?.phone||'')}</div>
         </div>
         <div class="form-group"><label>Indirizzo *</label><input id="org-addr" value="${sanitize(org?.address||'')}" required></div>
@@ -895,6 +897,30 @@ async function renderOrganizationEdit(id) {
     });
   }
 
+  // Codice Fiscale validation on blur
+  const orgTaxInput = $('#org-tax');
+  if (orgTaxInput) {
+    orgTaxInput.addEventListener('blur', () => {
+      const v = orgTaxInput.value.trim();
+      const err = $('#org-tax-err');
+      if (v && !isValidCodiceFiscale(v)) { err.style.display = 'block'; orgTaxInput.style.borderColor = '#d32f2f'; }
+      else { err.style.display = 'none'; orgTaxInput.style.borderColor = ''; }
+    });
+    orgTaxInput.addEventListener('input', () => { orgTaxInput.value = orgTaxInput.value.toUpperCase(); });
+  }
+
+  // Partita IVA validation on blur
+  const orgVatInput = $('#org-vat');
+  if (orgVatInput) {
+    orgVatInput.addEventListener('blur', () => {
+      const v = orgVatInput.value.trim();
+      const err = $('#org-vat-err');
+      if (v && !isValidPartitaIVA(v)) { err.style.display = 'block'; orgVatInput.style.borderColor = '#d32f2f'; }
+      else { err.style.display = 'none'; orgVatInput.style.borderColor = ''; }
+    });
+    orgVatInput.addEventListener('input', () => { orgVatInput.value = orgVatInput.value.replace(/\D/g, ''); });
+  }
+
   // Auto fill region on load if province is set
   if (org?.province && !org?.region) autoFillRegion();
 
@@ -953,6 +979,12 @@ async function renderOrganizationEdit(id) {
     e.preventDefault();
     const email = $('#org-email').value.trim();
     if (email && !isValidEmail(email)) { toast('Inserisci un indirizzo email valido', 'error'); return; }
+
+    const taxCode = $('#org-tax').value.trim();
+    if (taxCode && !isValidCodiceFiscale(taxCode)) { toast('Codice fiscale non valido. Deve essere di 16 caratteri con formato e carattere di controllo corretti.', 'error'); return; }
+
+    const vatNumber = $('#org-vat').value.trim();
+    if (vatNumber && !isValidPartitaIVA(vatNumber)) { toast('Partita IVA non valida. Deve essere di 11 cifre con cifra di controllo corretta.', 'error'); return; }
 
     // Verifica documenti obbligatori per nuova org
     if (isNew && orgDocQueue.length === 0) {
@@ -1846,6 +1878,7 @@ function showAddBeneficiaryModal() {
               <select id="ben-target"><option value="">Seleziona...</option>
               ${Object.entries(TARGET_LABELS).map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}</select></div>
             <div class="form-group"><label>Ente inviante</label><input id="ben-entity" placeholder="es. CSM Piacenza"></div>
+            <div class="form-group"><label>Contatto ente</label><input id="ben-contact" placeholder="es. Dott.ssa Bruni"></div>
             <div class="form-group"><label>Data inizio</label><input type="date" id="ben-start"></div>
             <div class="form-group"><label>Note</label><textarea id="ben-notes"></textarea></div>
             <button type="submit" class="btn btn-primary btn-block">Registra beneficiario</button>
@@ -1862,6 +1895,7 @@ function showAddBeneficiaryModal() {
       body: JSON.stringify({
         organizationId: orgId, code: $('#ben-code').value,
         targetType: $('#ben-target').value, referringEntity: $('#ben-entity').value,
+        referringContact: $('#ben-contact').value,
         startDate: $('#ben-start').value, notes: $('#ben-notes').value
       })
     });
@@ -2073,6 +2107,9 @@ async function showEditBeneficiaryModal(benId) {
       <div class="form-group" style="margin-bottom:12px"><label>Ente inviante</label>
         <input id="eb-entity" value="${sanitize(b.referring_entity||'')}" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px">
       </div>
+      <div class="form-group" style="margin-bottom:12px"><label>Contatto ente</label>
+        <input id="eb-contact" value="${sanitize(b.referring_contact||'')}" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px">
+      </div>
       <div class="form-group" style="margin-bottom:12px"><label>Data inizio</label>
         <input type="date" id="eb-start" value="${b.start_date||''}" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px">
       </div>
@@ -2094,6 +2131,7 @@ async function showEditBeneficiaryModal(benId) {
     const body = {
       targetType: overlay.querySelector('#eb-target').value || null,
       referringEntity: overlay.querySelector('#eb-entity').value.trim() || null,
+      referringContact: overlay.querySelector('#eb-contact').value.trim() || null,
       startDate: overlay.querySelector('#eb-start').value || null,
       notes: overlay.querySelector('#eb-notes').value.trim() || null,
     };
@@ -2803,11 +2841,11 @@ function phoneInputHtml(id, value = '') {
   }
   const inputStyle = 'padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px';
   return `
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <select id="${id}-prefix" class="phone-prefix-select" style="min-width:130px;flex:0 0 auto;${inputStyle}">
+    <div style="display:flex;gap:8px;align-items:center">
+      <select id="${id}-prefix" class="phone-prefix-select" style="width:150px;flex:0 0 150px;${inputStyle}">
         ${PHONE_PREFIXES.map(p => `<option value="${p.code}" ${p.code===prefix?'selected':''}>${p.country} (${p.code})</option>`).join('')}
       </select>
-      <input type="tel" id="${id}" value="${number}" placeholder="333 1234567" style="flex:1;min-width:140px;${inputStyle}" oninput="this.value=this.value.replace(/[^0-9\\s]/g,'')">
+      <input type="tel" id="${id}" value="${number}" placeholder="333 1234567" style="flex:1;min-width:120px;${inputStyle}" oninput="this.value=this.value.replace(/[^0-9\\s]/g,'')">
     </div>`;
 }
 
@@ -2819,6 +2857,52 @@ function getPhoneValue(id) {
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isValidCodiceFiscale(cf) {
+  if (!cf) return true; // campo opzionale
+  cf = cf.toUpperCase().trim();
+  if (cf.length !== 16) return false;
+  if (!/^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$/.test(cf)) return false;
+  
+  const oddMap = {
+    '0':1,'1':0,'2':5,'3':7,'4':9,'5':13,'6':15,'7':17,'8':19,'9':21,
+    'A':1,'B':0,'C':5,'D':7,'E':9,'F':13,'G':15,'H':17,'I':19,'J':21,
+    'K':2,'L':4,'M':18,'N':20,'O':11,'P':3,'Q':6,'R':8,'S':12,'T':14,
+    'U':16,'V':10,'W':22,'X':25,'Y':24,'Z':23
+  };
+  const evenMap = {
+    '0':0,'1':1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,
+    'A':0,'B':1,'C':2,'D':3,'E':4,'F':5,'G':6,'H':7,'I':8,'J':9,
+    'K':10,'L':11,'M':12,'N':13,'O':14,'P':15,'Q':16,'R':17,'S':18,'T':19,
+    'U':20,'V':21,'W':22,'X':23,'Y':24,'Z':25
+  };
+  
+  let sum = 0;
+  for (let i = 0; i < 15; i++) {
+    sum += (i % 2 === 0) ? oddMap[cf[i]] : evenMap[cf[i]];
+  }
+  const checkChar = String.fromCharCode(65 + (sum % 26));
+  return cf[15] === checkChar;
+}
+
+function isValidPartitaIVA(pi) {
+  if (!pi) return true; // campo opzionale
+  pi = pi.trim();
+  if (pi.length !== 11) return false;
+  if (!/^\d{11}$/.test(pi)) return false;
+  
+  let sum = 0;
+  for (let i = 0; i < 11; i++) {
+    const digit = parseInt(pi[i]);
+    if (i % 2 === 0) {
+      sum += digit;
+    } else {
+      const doubled = digit * 2;
+      sum += doubled > 9 ? doubled - 9 : doubled;
+    }
+  }
+  return sum % 10 === 0;
 }
 
 async function showCreateUserModal() {
