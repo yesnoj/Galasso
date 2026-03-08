@@ -44,8 +44,8 @@ router.get('/', authenticate, (req, res) => {
     } else {
       sql = `SELECT c.*, o.name as org_name FROM certifications c 
              JOIN organizations o ON c.organization_id = o.id 
-             WHERE o.admin_user_id = ? ORDER BY c.created_at DESC`;
-      params.push(req.user.id);
+             WHERE o.id = ? ORDER BY c.created_at DESC`;
+      params.push(req.user.organization_id);
     }
 
     res.json(db.prepare(sql).all(...params));
@@ -61,7 +61,7 @@ router.get('/:id', authenticate, (req, res) => {
     const db = getDb();
     const cert = db.prepare(`
       SELECT c.*, o.name as org_name, o.city as org_city, o.address as org_address,
-      o.legal_form as org_legal_form, o.admin_user_id
+      o.legal_form as org_legal_form
       FROM certifications c JOIN organizations o ON c.organization_id = o.id
       WHERE c.id = ?
     `).get(req.params.id);
@@ -69,7 +69,7 @@ router.get('/:id', authenticate, (req, res) => {
     if (!cert) return res.status(404).json({ error: 'Certificazione non trovata' });
 
     // Verifica accesso
-    if (!['admin', 'auditor'].includes(req.user.role) && cert.admin_user_id !== req.user.id) {
+    if (!['admin', 'auditor'].includes(req.user.role) && req.user.organization_id !== cert.organization_id) {
       return res.status(403).json({ error: 'Non autorizzato' });
     }
 
@@ -92,7 +92,7 @@ router.post('/', authenticate, authorize('admin', 'org_admin'), (req, res) => {
     const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(organizationId);
     if (!org) return res.status(404).json({ error: 'Organizzazione non trovata' });
 
-    if (req.user.role !== 'admin' && org.admin_user_id !== req.user.id) {
+    if (req.user.role !== 'admin' && req.user.organization_id !== organizationId) {
       return res.status(403).json({ error: 'Non autorizzato' });
     }
 

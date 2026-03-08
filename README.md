@@ -518,14 +518,14 @@ SISTEMA
 | Compilare checklist audit | ❌ | ✅ | ❌ | ❌ | ❌ |
 | Visualizzare checklist (sola lettura) | ✅ | — | ✅* | ✅* | ❌ |
 | Rilasciare certificato | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Beneficiari (CRUD) | 👁 | ❌ | ✅* | ✅* | 👁† |
-| Report Excel beneficiari | ❌ | ❌ | ✅* | ✅* | ❌ |
-| Attività (CRUD) | 👁 | ❌ | ✅* | ✅* | ❌ |
+| Beneficiari (CRUD) | 👁 | ❌ | ✅*‡ | ✅*‡ | 👁† |
+| Report Excel beneficiari | ❌ | ❌ | ✅*‡ | ✅*‡ | ❌ |
+| Attività (CRUD) | 👁 | ❌ | ✅*‡ | ✅*‡ | ❌ |
 | Gestione utenti | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Moderazione recensioni | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Registro pubblico | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-*\* = solo per la propria organizzazione. 👁 = sola lettura. † = solo beneficiari collegati al proprio utente.*
+*\* = solo per la propria organizzazione. 👁 = sola lettura. † = solo beneficiari collegati al proprio utente. ‡ = solo se l'organizzazione ha certificazione rilasciata (status `issued`).*
 
 ---
 
@@ -622,14 +622,21 @@ Il file `seed.js` popola il database con dati realistici italiani:
 
 | Entità | Quantità | Dettagli |
 |--------|----------|---------|
-| Utenti | 13 | Admin, 2 auditor, 5 org admin, 2 operatori, 2 enti, 1 pubblico |
-| Organizzazioni | 5 | 3 attive (certificate o in attesa rilascio), 2 in attesa di verifica |
-| Certificazioni | 3 | 2 rilasciate (14C), 1 audit completato (10C+2PC+2NA) |
-| Audit | 3 | 3 completati con valutazioni dettagliate su 14 requisiti |
-| Beneficiari | 12 | Con enti invianti realistici (CSM, SerD, Servizi Sociali). 3 collegati a enti referenti registrati |
-| Attività | ~210 | Generate per 60 giorni, 6 tipologie di servizio |
+| Utenti | 17 | Admin, 2 auditor, 7 org admin, 3 operatori, 3 enti, 1 pubblico |
+| Organizzazioni | 7 | 3 certificate (issued), 1 audit completato, 1 cert inviata, 2 pending |
+| Certificazioni | 5 | 3 rilasciate (14C), 1 audit completato (10C+2PC+2NA), 1 appena inviata |
+| Audit | 4 | 4 completati con valutazioni dettagliate su 14 requisiti |
+| Beneficiari | 13 | Solo su org certificate. 3 collegati a enti referenti registrati |
+| Attività | ~200 | Generate per 60 giorni, 6 tipologie di servizio. Solo su org certificate |
 | Recensioni | 9 | 6 pubblicate, 3 da moderare |
 | Azioni correttive | 2 | Per Campo Sociale (req. 3.3 e 4.2 parzialmente conformi) |
+| Regioni | 3 | Emilia-Romagna, Toscana, Piemonte |
+
+**Regole di business rispettate nel seed:**
+- Org pending → nessuna certificazione, beneficiari, attività
+- Org attiva senza cert issued → nessun beneficiario, nessuna attività
+- Cert issued → tutti 14 requisiti C nell'ultimo audit
+- Operatori collegati via `organization_id` alla stessa org dell'org_admin
 
 ### Eseguire il seed
 
@@ -668,17 +675,25 @@ docker restart gcf-platform
 
 ## Credenziali demo
 
-| Ruolo | Email | Password |
-|-------|-------|----------|
-| Amministratore | `admin@gcf.it` | `admin123` |
-| Auditor 1 | `luca.bianchi@gcf.it` | `auditor123` |
-| Auditor 2 | `anna.moretti@gcf.it` | `auditor123` |
-| Admin Org (Terra Buona) | `giuseppe.verdi@terrabuona.it` | `org12345` |
-| Admin Org (Il Vigneto) | `maria.conti@ilvigneto.it` | `org12345` |
-| Admin Org (Campo Sociale) | `paolo.ferrara@camposociale.it` | `org12345` |
-| Operatore | `chiara.esposito@terrabuona.it` | `oper1234` |
-| Ente Referente | `silvia.gallo@csmpiacenza.it` | `ente1234` |
-| Utente pubblico | `giovanna.marino@gmail.com` | `user1234` |
+| Ruolo | Email | Password | Organizzazione | Stato |
+|-------|-------|----------|----------------|-------|
+| Amministratore | `admin@gcf.it` | `admin123` | — | — |
+| Auditor 1 | `luca.bianchi@gcf.it` | `auditor123` | — | — |
+| Auditor 2 | `anna.moretti@gcf.it` | `auditor123` | — | — |
+| Admin Org | `giuseppe.verdi@terrabuona.it` | `org12345` | Terra Buona | ✅ Certificata |
+| Admin Org | `maria.conti@ilvigneto.it` | `org12345` | Il Vigneto | ✅ Certificata |
+| Admin Org | `stefano.landi@collina.it` | `org12345` | La Collina (Toscana) | ✅ Certificata |
+| Admin Org | `paolo.ferrara@camposociale.it` | `org12345` | Campo Sociale | ⏳ Audit completato |
+| Admin Org | `laura.gatti@cascinadelsole.it` | `org12345` | Cascina del Sole (Piemonte) | 📩 Cert. inviata |
+| Admin Org | `elena.russo@fattoriasperanza.it` | `org12345` | Fattoria Speranza | ⏳ Org. pending |
+| Admin Org | `francesco.romano@ortosociale.it` | `org12345` | Orto Sociale Bologna | ⏳ Org. pending |
+| Operatore | `chiara.esposito@terrabuona.it` | `oper1234` | Terra Buona | ✅ Certificata |
+| Operatore | `davide.colombo@ilvigneto.it` | `oper1234` | Il Vigneto | ✅ Certificata |
+| Operatore | `sara.neri@collina.it` | `oper1234` | La Collina (Toscana) | ✅ Certificata |
+| Ente Referente | `silvia.gallo@csmpiacenza.it` | `ente1234` | — | Vede TB-001/004 |
+| Ente Referente | `roberto.fontana@csmparma.it` | `ente1234` | — | Vede VG-003 |
+| Ente Referente | `chiara.martini@aslarezzo.it` | `ente1234` | — | Vede LC-003 |
+| Utente pubblico | `giovanna.marino@gmail.com` | `user1234` | — | — |
 
 > ⚠️ Queste credenziali sono solo per demo/test. Cambiarle in produzione.
 
@@ -686,12 +701,42 @@ docker restart gcf-platform
 
 ## Changelog
 
+### v2.2 — Marzo 2026 (Ruoli operatore, regole business, documenti audit)
+
+**Architettura ruoli — `organization_id` su utenti**
+- Nuovo campo `organization_id` nella tabella `users` per collegare ogni utente alla propria organizzazione
+- Più utenti (org_admin + operatori) possono appartenere alla stessa organizzazione senza conflitti
+- Il campo `admin_user_id` su `organizations` resta come riferimento al proprietario/creatore
+- Migrazione automatica per database esistenti: popola `organization_id` da `admin_user_id`
+- Tutti gli endpoint backend aggiornati per usare `user.organization_id` per filtri e permessi
+
+**Regola business: certificazione obbligatoria**
+- Beneficiari e attività possono essere creati solo da organizzazioni con certificazione rilasciata (status `issued`)
+- Banner giallo "Organizzazione non ancora certificata" nelle pagine Beneficiari e Attività
+- Il pulsante "+ Nuovo" è nascosto per org non certificate
+
+**Documenti allegati nella checklist audit**
+- L'auditor può ora visualizzare e scaricare i documenti PDF caricati dall'organizzazione
+- Sezione collassabile "📎 Documenti allegati dall'organizzazione" nella pagina checklist
+- Mostra nome file, dimensione, autore, data e pulsante download
+
+**Miglioramenti UX**
+- Ente referente: pulsante "← Torna ai beneficiari" (invece di "Torna alle organizzazioni") nel dettaglio org
+- Rimossa funzionalità "foto principale" (badge ⭐ e pulsante) dalla galleria foto
+- Operatore: messaggio dashboard "Nessuna certificazione attiva" (senza link "Fai domanda")
+- Report Excel: disponibile anche per org con beneficiari pre-esistenti
+
+**Seed database completamente riscritto**
+- 17 utenti, 7 organizzazioni su 3 regioni (Emilia-Romagna, Toscana, Piemonte)
+- 3 org certificate (issued) con beneficiari e attività, 2 in corso (audit_completed, submitted), 2 pending
+- Tutte le regole di business rispettate: zero beneficiari su org non certificate
+- 3 enti referenti collegati ai beneficiari, 3 operatori collegati alle rispettive org
+
 ### v2.1 — Marzo 2026 (Foto, Ente Referente, Validazioni)
 
 **Galleria foto organizzazione**
 - Upload immagini JPG/PNG/WebP (max 5MB, max 10 per organizzazione)
 - Galleria griglia responsive nel dettaglio organizzazione
-- Foto principale con badge ⭐ (impostabile dall'org admin)
 - Visualizzazione fullscreen al click
 - Galleria visibile anche nel **registro pubblico**
 - Immagini salvate in `uploads/images/` e incluse nel backup automatico

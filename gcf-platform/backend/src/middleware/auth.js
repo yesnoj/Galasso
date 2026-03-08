@@ -20,7 +20,7 @@ function authenticate(req, res, next) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     const db = getDb();
-    const user = db.prepare('SELECT id, email, role, first_name, last_name, is_active FROM users WHERE id = ?').get(decoded.userId);
+    const user = db.prepare('SELECT id, email, role, first_name, last_name, organization_id, is_active FROM users WHERE id = ?').get(decoded.userId);
     
     if (!user || !user.is_active) {
       return res.status(401).json({ error: 'Utente non trovato o disattivato' });

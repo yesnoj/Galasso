@@ -39,7 +39,8 @@ router.get('/report', authenticate, authorize('org_admin', 'org_operator'), asyn
     const { from, to, referring_entity } = req.query;
 
     // Trova l'organizzazione dell'utente
-    const org = db.prepare('SELECT id, name FROM organizations WHERE admin_user_id = ?').get(req.user.id);
+    if (!req.user.organization_id) return res.status(400).json({ error: 'Nessuna organizzazione associata' });
+    const org = db.prepare('SELECT id, name FROM organizations WHERE id = ?').get(req.user.organization_id);
     if (!org) return res.status(400).json({ error: 'Nessuna organizzazione associata' });
 
     // Query beneficiari con filtri
@@ -287,8 +288,7 @@ router.get('/activities/list', authenticate, (req, res) => {
     let params = [];
 
     if (req.user.role === 'org_admin' || req.user.role === 'org_operator') {
-      const org = db.prepare('SELECT id FROM organizations WHERE admin_user_id = ?').get(req.user.id);
-      if (org) { where += ' AND al.organization_id = ?'; params.push(org.id); }
+      if (req.user.organization_id) { where += ' AND al.organization_id = ?'; params.push(req.user.organization_id); }
       else return res.json([]);
     } else if (organization_id) {
       where += ' AND al.organization_id = ?';
@@ -393,8 +393,7 @@ router.get('/', authenticate, (req, res) => {
     let params = [];
 
     if (req.user.role === 'org_admin' || req.user.role === 'org_operator') {
-      const org = db.prepare('SELECT id FROM organizations WHERE admin_user_id = ?').get(req.user.id);
-      if (org) { where += ' AND b.organization_id = ?'; params.push(org.id); }
+      if (req.user.organization_id) { where += ' AND b.organization_id = ?'; params.push(req.user.organization_id); }
       else return res.json([]);
     } else if (req.user.role === 'ente_referente') {
       // L'ente referente vede solo i beneficiari collegati al proprio utente

@@ -112,8 +112,12 @@ router.get('/', optionalAuth, (req, res) => {
 
     // org_admin e org_operator vedono solo la propria organizzazione
     if (req.user && ['org_admin', 'org_operator'].includes(req.user.role)) {
-      where.push('o.admin_user_id = ?');
-      params.push(req.user.id);
+      if (req.user.organization_id) {
+        where.push('o.id = ?');
+        params.push(req.user.organization_id);
+      } else {
+        where.push('1=0'); // nessuna org associata
+      }
     }
 
     if (region) { where.push('o.region = ?'); params.push(region); }
@@ -194,8 +198,7 @@ router.post('/', authenticate, authorize('org_admin'), (req, res) => {
     const db = getDb();
 
     // Verifica che l'org_admin non abbia già un'organizzazione
-    const existing = db.prepare('SELECT id FROM organizations WHERE admin_user_id = ?').get(req.user.id);
-    if (existing) {
+    if (req.user.organization_id) {
       return res.status(409).json({ error: 'Hai già un\'organizzazione associata' });
     }
 
@@ -228,6 +231,9 @@ router.post('/', authenticate, authorize('org_admin'), (req, res) => {
     `).run(id, name, legalForm, safeTaxCode, safeVatNumber, address, city, province, postalCode || null, region,
       latitude || null, longitude || null, phone || null, email || null, website || null, description || null,
       socialManagerName || null, socialManagerRole || null, req.user.id);
+
+    // Collega l'utente all'organizzazione appena creata
+    db.prepare('UPDATE users SET organization_id = ? WHERE id = ?').run(id, req.user.id);
 
     // Servizi
     if (services && Array.isArray(services)) {
@@ -268,7 +274,7 @@ router.put('/:id', authenticate, (req, res) => {
     if (!org) return res.status(404).json({ error: 'Organizzazione non trovata' });
 
     // Verifica permessi
-    if (req.user.role !== 'admin' && org.admin_user_id !== req.user.id) {
+    if (req.user.role !== 'admin' && req.user.organization_id !== org.id) {
       return res.status(403).json({ error: 'Non autorizzato' });
     }
 
@@ -367,7 +373,7 @@ router.post('/:id/documents', authenticate, authorize('org_admin'), (req, res) =
       const db = getDb();
       const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(req.params.id);
       if (!org) return res.status(404).json({ error: 'Organizzazione non trovata' });
-      if (org.admin_user_id !== req.user.id) return res.status(403).json({ error: 'Non autorizzato' });
+      if (req.user.organization_id !== org.id) return res.status(403).json({ error: 'Non autorizzato' });
 
       const docType = req.body.document_type || 'altro';
       const notes = req.body.notes || null;
@@ -394,7 +400,7 @@ router.get('/:id/documents', authenticate, (req, res) => {
     if (!org) return res.status(404).json({ error: 'Organizzazione non trovata' });
 
     // Solo admin o proprietario dell'org
-    if (req.user.role !== 'admin' && org.admin_user_id !== req.user.id) {
+    if (req.user.role !== 'admin' && req.user.organization_id !== org.id) {
       return res.status(403).json({ error: 'Non autorizzato' });
     }
 
@@ -419,7 +425,7 @@ router.get('/:id/documents/:docId/download', authenticate, (req, res) => {
     const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(req.params.id);
     if (!org) return res.status(404).json({ error: 'Organizzazione non trovata' });
 
-    if (req.user.role !== 'admin' && org.admin_user_id !== req.user.id) {
+    if (req.user.role !== 'admin' && req.user.organization_id !== org.id) {
       return res.status(403).json({ error: 'Non autorizzato' });
     }
 
@@ -444,7 +450,7 @@ router.delete('/:id/documents/:docId', authenticate, authorize('admin', 'org_adm
     const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(req.params.id);
     if (!org) return res.status(404).json({ error: 'Organizzazione non trovata' });
 
-    if (req.user.role !== 'admin' && org.admin_user_id !== req.user.id) {
+    if (req.user.role !== 'admin' && req.user.organization_id !== org.id) {
       return res.status(403).json({ error: 'Non autorizzato' });
     }
 
@@ -477,7 +483,7 @@ router.post('/:id/images', authenticate, authorize('admin', 'org_admin'), (req, 
       const db = getDb();
       const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(req.params.id);
       if (!org) return res.status(404).json({ error: 'Organizzazione non trovata' });
-      if (req.user.role !== 'admin' && org.admin_user_id !== req.user.id) {
+      if (req.user.role !== 'admin' && req.user.organization_id !== org.id) {
         return res.status(403).json({ error: 'Non autorizzato' });
       }
 
@@ -524,7 +530,7 @@ router.put('/:id/images/:imgId/primary', authenticate, authorize('admin', 'org_a
     const db = getDb();
     const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(req.params.id);
     if (!org) return res.status(404).json({ error: 'Organizzazione non trovata' });
-    if (req.user.role !== 'admin' && org.admin_user_id !== req.user.id) {
+    if (req.user.role !== 'admin' && req.user.organization_id !== org.id) {
       return res.status(403).json({ error: 'Non autorizzato' });
     }
 
@@ -543,7 +549,7 @@ router.delete('/:id/images/:imgId', authenticate, authorize('admin', 'org_admin'
     const db = getDb();
     const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(req.params.id);
     if (!org) return res.status(404).json({ error: 'Organizzazione non trovata' });
-    if (req.user.role !== 'admin' && org.admin_user_id !== req.user.id) {
+    if (req.user.role !== 'admin' && req.user.organization_id !== org.id) {
       return res.status(403).json({ error: 'Non autorizzato' });
     }
 

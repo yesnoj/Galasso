@@ -65,6 +65,7 @@
   .action-node.action { background: #f3e5f5; color: #4a148c; border-color: #ce93d8; }
   .action-node.download { background: #e0f2f1; color: #004d40; border-color: #80cbc4; }
   .action-node.navigate { background: #f5f5f5; color: #424242; border-color: #e0e0e0; }
+  .action-node.info { background: #fff3cd; color: #856404; border-color: #ffc107; font-style: italic; }
 
   .action-node.active { box-shadow: 0 0 0 3px rgba(46,125,50,.4); transform: translateY(-2px); }
 
@@ -227,7 +228,8 @@ const DATA = {
     ]},
     { section: '✅ Audit (funzione esclusiva)', actions: [
       { name: 'I miei audit', type: 'read', detail: 'Lista degli audit assegnati con stato e scadenze. Badge rosso nel menu indica audit da completare.' },
-      { name: 'Compila checklist', type: 'update', detail: 'Funzione ESCLUSIVA dell\'auditor. Intestazione con nome auditor, organizzazione, tipo/modalità, contatori C/PC/NC/NA. 14 requisiti, 5 aree. Valutazioni C/PC/NC/NA con note ed evidenze.', steps: ['Clicca "Checklist" sull\'audit assegnato', 'Verifica intestazione con il tuo nome come auditor', 'Valuta ogni requisito: C / PC / NC / NA', 'Spunta evidenze verificate (checkbox)', 'Inserisci note per ogni requisito', 'Salva progressi con "💾 Salva valutazioni"', 'Completa audit → inserisci nome rappresentante org.', 'Esito calcolato automaticamente', '"← Torna alla lista audit" per tornare indietro'] },
+      { name: 'Compila checklist', type: 'update', detail: 'Funzione ESCLUSIVA dell\'auditor. Intestazione con nome auditor, organizzazione, tipo/modalità, contatori C/PC/NC/NA. 14 requisiti, 5 aree. Valutazioni C/PC/NC/NA con note ed evidenze.', steps: ['Clicca "Checklist" sull\'audit assegnato', 'Verifica intestazione con il tuo nome come auditor', 'Espandi "📎 Documenti allegati dall\'organizzazione" per consultare i PDF', 'Valuta ogni requisito: C / PC / NC / NA', 'Spunta evidenze verificate (checkbox)', 'Inserisci note per ogni requisito', 'Salva progressi con "💾 Salva valutazioni"', 'Completa audit → inserisci nome rappresentante org.', 'Esito calcolato automaticamente'] },
+      { name: 'Documenti allegati', type: 'read', detail: 'Nella pagina checklist, sezione collassabile "📎 Documenti allegati dall\'organizzazione" con download dei PDF caricati dall\'organizzazione per la certificazione.' },
       { name: 'Scarica Report PDF', type: 'download', detail: 'Report completo dell\'audit in PDF.' },
     ]},
     { section: '🗂️ Altro', actions: [
@@ -245,7 +247,7 @@ const DATA = {
       { name: 'Visualizza organizzazione', type: 'read', detail: 'Dati della propria organizzazione con sezione documenti di legittimazione.' },
       { name: 'Modifica organizzazione', type: 'update', detail: 'Modifica dati, provincia (picklist), regione auto, email validata, telefono con prefisso.' },
       { name: 'Carica documenti aggiuntivi', type: 'create', detail: 'Aggiungi altri documenti di legittimazione dal dettaglio organizzazione (finché è in attesa).' },
-      { name: 'Carica foto organizzazione', type: 'create', detail: 'Upload foto JPG/PNG/WebP (max 5MB, max 10 foto). La prima foto diventa automaticamente principale (⭐). Click per fullscreen. Le foto sono visibili anche nel registro pubblico.', steps: ['Vai al dettaglio organizzazione', 'Sezione "📷 Foto dell\'organizzazione"', 'Seleziona immagine e opzionalmente aggiungi didascalia', 'Clicca "📷 Carica foto"', 'Imposta foto principale con ⭐, elimina con 🗑️'] },
+      { name: 'Carica foto organizzazione', type: 'create', detail: 'Upload foto JPG/PNG/WebP (max 5MB, max 10 foto). Click per fullscreen. Le foto sono visibili anche nel registro pubblico.', steps: ['Vai al dettaglio organizzazione', 'Sezione "📷 Foto dell\'organizzazione"', 'Seleziona immagine e opzionalmente aggiungi didascalia', 'Clicca "📷 Carica foto"', 'Elimina con 🗑️'] },
     ]},
     { section: '📜 Certificazioni', actions: [
       { name: 'Richiedi certificazione', type: 'create', detail: 'Disponibile SOLO dopo l\'attivazione dell\'organizzazione da parte di AICARE. Se l\'org è "In attesa", viene mostrato un avviso.', steps: ['Vai su Certificazioni', 'Clicca "Richiedi certificazione"', 'Seleziona file PDF da allegare', 'Verifica lista file', 'Invia domanda'] },
@@ -255,6 +257,7 @@ const DATA = {
       { name: 'Scarica Certificato PDF', type: 'download', detail: 'Scarica il certificato rilasciato.' },
     ]},
     { section: '👥 Beneficiari e 📋 Attività', actions: [
+      { name: '⚠️ Prerequisito: certificazione rilasciata', type: 'info', detail: 'La registrazione di beneficiari e attività è possibile SOLO dopo che l\'organizzazione ha ottenuto la certificazione (status "Rilasciata"). Fino a quel momento viene mostrato un banner giallo e i pulsanti di creazione sono nascosti.' },
       { name: 'Gestisci beneficiari', type: 'create', detail: 'Aggiungi, modifica, elimina beneficiari della propria organizzazione. Codici cliccabili → popup dettaglio. Stato via picklist (Attivo/Completato/Sospeso/Abbandonato). Dropdown "Ente referente collegato" per associare un ente registrato sulla piattaforma e dargli accesso al monitoraggio del beneficiario.' },
       { name: 'Registra attività', type: 'create', detail: 'Beneficiario obbligatorio (dropdown auto-filtrato per organizzazione). Durata in ore (step 0.5).' },
       { name: 'Modifica attività', type: 'update', detail: 'Modifica durata, servizio, descrizione.' },
@@ -281,6 +284,7 @@ const DATA = {
       { name: 'Visualizza checklist audit', type: 'read', detail: 'Accedi alla checklist dell\'audit in sola lettura.' },
     ]},
     { section: '👥 Beneficiari e 📋 Attività', actions: [
+      { name: '⚠️ Prerequisito: certificazione rilasciata', type: 'info', detail: 'Funzionalità disponibili SOLO dopo la certificazione. Banner giallo se non certificata.' },
       { name: 'Gestisci beneficiari', type: 'create', detail: 'Aggiungi, modifica, elimina beneficiari. Codici cliccabili → popup dettaglio. Stato via picklist.' },
       { name: 'Registra attività', type: 'create', detail: 'Beneficiario obbligatorio (dropdown). Durata in ore.' },
       { name: 'Modifica attività', type: 'update', detail: 'Modifica qualsiasi campo dell\'attività.' },

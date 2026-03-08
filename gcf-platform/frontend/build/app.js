@@ -723,8 +723,10 @@ async function renderDashboard() {
             </tr>`).join('')}</tbody>
           </table></div></div>
         </div>
-      ` : `
+      ` : state.user.role === 'org_admin' ? `
         <div class="alert alert-info">Non hai ancora una certificazione. <a href="#certifications">Fai domanda</a></div>
+      ` : `
+        <div class="alert alert-info">Nessuna certificazione attiva al momento.</div>
       `}
     `;
   } else {
@@ -1555,6 +1557,10 @@ async function renderAuditChecklist(auditId) {
   const isEditable = isAuditor && audit.status !== 'completed' && audit.status !== 'cancelled';
   const evaluations = audit.evaluations || [];
 
+  // Carica documenti della certificazione collegata
+  let certDocs = [];
+  try { certDocs = await api(`/certifications/${audit.certification_id}/documents`) || []; } catch(e) {}
+
   // Raggruppa per area
   const areas = {};
   evaluations.forEach(ev => {
@@ -1587,6 +1593,25 @@ async function renderAuditChecklist(auditId) {
         </div>
       </div>
     </div>
+    ${certDocs.length > 0 ? `
+    <div class="card mb-2">
+      <div class="card-header" style="cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.querySelector('.arrow-docs').textContent=this.nextElementSibling.style.display==='none'?'▶':'▼'">
+        <h3>📎 Documenti allegati dall'organizzazione (${certDocs.length}) <span class="arrow-docs" style="font-size:12px;margin-left:8px">▶</span></h3>
+      </div>
+      <div class="card-body" style="display:none">
+        <div class="table-container"><table class="card-table">
+          <thead><tr><th>Nome file</th><th>Dimensione</th><th>Caricato da</th><th>Data</th><th>Scarica</th></tr></thead>
+          <tbody>${certDocs.map(d => `<tr>
+            <td data-label="File">${sanitize(d.file_name)}</td>
+            <td data-label="Dimensione">${d.file_size ? (d.file_size/1024).toFixed(0) + ' KB' : '—'}</td>
+            <td data-label="Caricato da">${sanitize(d.uploader_name || '—')}</td>
+            <td data-label="Data">${formatDate(d.created_at)}</td>
+            <td data-label=""><button class="btn btn-secondary btn-sm" onclick="downloadCertDoc('${d.id}','${sanitize(d.file_name)}')">⬇️</button></td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+      </div>
+    </div>
+    ` : ''}
     <form id="audit-form">
   `;
 
@@ -1809,12 +1834,26 @@ async function renderBeneficiaries() {
   const bens = await api('/beneficiaries');
   if (!bens) return;
 
-  const canAdd = ['org_admin', 'org_operator'].includes(state.user.role);
+  const isOrgRole = ['org_admin', 'org_operator'].includes(state.user.role);
+  
+  // Verifica se l'organizzazione ha una certificazione rilasciata
+  let isCertified = true; // default per admin/auditor/ente
+  if (isOrgRole) {
+    const certs = await api('/certifications');
+    isCertified = certs && certs.some(c => c.status === 'issued');
+  }
+  
+  const canAdd = isOrgRole && isCertified;
 
   $('#page-content').innerHTML = `
-    ${canAdd ? `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="showAddBeneficiaryModal()">+ Nuovo beneficiario</button>
-      <button class="btn btn-secondary" onclick="showBeneficiaryReportModal()">📊 Genera report Excel</button>
+    ${isOrgRole && !isCertified ? `
+      <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:14px;color:#856404">
+        ⚠️ <strong>Organizzazione non ancora certificata</strong> — La registrazione dei beneficiari e delle attività è possibile solo dopo aver ottenuto la certificazione.
+      </div>
+    ` : ''}
+    ${canAdd || (isOrgRole && bens.length > 0) ? `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      ${canAdd ? '<button class="btn btn-primary" onclick="showAddBeneficiaryModal()">+ Nuovo beneficiario</button>' : ''}
+      ${isOrgRole && bens.length > 0 ? '<button class="btn btn-secondary" onclick="showBeneficiaryReportModal()">📊 Genera report Excel</button>' : ''}
     </div>` : ''}
     ${bens.length === 0 ? '<div class="empty-state"><div class="icon">👥</div><h3>Nessun beneficiario registrato</h3></div>' : `
       <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
@@ -2090,9 +2129,23 @@ async function renderActivities() {
   const activities = await api('/beneficiaries/activities/list');
   if (!activities) return;
 
-  const canAdd = ['org_admin', 'org_operator'].includes(state.user.role);
+  const isOrgRole = ['org_admin', 'org_operator'].includes(state.user.role);
+  
+  // Verifica se l'organizzazione ha una certificazione rilasciata
+  let isCertified = true;
+  if (isOrgRole) {
+    const certs = await api('/certifications');
+    isCertified = certs && certs.some(c => c.status === 'issued');
+  }
+  
+  const canAdd = isOrgRole && isCertified;
 
   $('#page-content').innerHTML = `
+    ${isOrgRole && !isCertified ? `
+      <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:14px;color:#856404">
+        ⚠️ <strong>Organizzazione non ancora certificata</strong> — La registrazione delle attività è possibile solo dopo aver ottenuto la certificazione.
+      </div>
+    ` : ''}
     ${canAdd ? '<button class="btn btn-primary mb-2" onclick="showAddActivityModal()">+ Registra attività</button>' : ''}
     ${activities.length === 0 ? '<div class="empty-state"><div class="icon">📋</div><h3>Nessuna attività registrata</h3></div>' : `
       <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
@@ -2358,9 +2411,12 @@ async function renderOrganizationDetail(id) {
   const isOwner = ['org_admin','org_operator'].includes(state.user.role) && state.user.organization?.id === id;
   const canManageImages = isAdmin || (state.user.role === 'org_admin' && state.user.organization?.id === id);
 
+  const backTarget = state.user.role === 'ente_referente' ? 'beneficiaries' : 'organizations';
+  const backLabel = state.user.role === 'ente_referente' ? '← Torna ai beneficiari' : '← Torna alle organizzazioni';
+
   $('#page-content').innerHTML = `
     <div style="margin-bottom:12px">
-      <button class="btn btn-secondary btn-sm" onclick="navigate('organizations')">← Torna alle organizzazioni</button>
+      <button class="btn btn-secondary btn-sm" onclick="navigate('${backTarget}')">${backLabel}</button>
     </div>
     ${org.status === 'pending' && isOwner ? `
       <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:14px;color:#856404">
@@ -2409,11 +2465,9 @@ async function renderOrganizationDetail(id) {
                 <img src="/uploads/images/${img.file_path}" alt="${sanitize(img.caption || 'Foto organizzazione')}" 
                   style="width:100%;height:180px;object-fit:cover;cursor:pointer;display:block" 
                   onclick="showImageFullscreen('/uploads/images/${img.file_path}','${sanitize(img.caption || '')}')">
-                ${img.is_primary ? '<div style="position:absolute;top:6px;left:6px;background:#2e7d32;color:white;font-size:11px;padding:2px 8px;border-radius:12px">⭐ Principale</div>' : ''}
                 ${img.caption ? `<div style="padding:6px 10px;font-size:13px;color:#555;border-top:1px solid #eee">${sanitize(img.caption)}</div>` : ''}
                 ${canManageImages ? `
-                  <div style="position:absolute;top:6px;right:6px;display:flex;gap:4px">
-                    ${!img.is_primary ? `<button class="btn btn-secondary btn-sm" style="padding:2px 6px;font-size:11px" onclick="event.stopPropagation();setOrgImagePrimary('${id}','${img.id}')" title="Imposta come principale">⭐</button>` : ''}
+                  <div style="position:absolute;top:6px;right:6px">
                     <button class="btn btn-danger btn-sm" style="padding:2px 6px;font-size:11px" onclick="event.stopPropagation();deleteOrgImage('${id}','${img.id}')" title="Elimina">🗑️</button>
                   </div>
                 ` : ''}

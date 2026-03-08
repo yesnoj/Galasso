@@ -88,10 +88,10 @@ router.post('/login', (req, res) => {
 
     const tokens = generateTokens(user.id);
 
-    // Carica organizzazione se org_admin
+    // Carica organizzazione se org_admin o org_operator
     let organization = null;
-    if (user.role === 'org_admin' || user.role === 'org_operator') {
-      organization = db.prepare('SELECT id, name, status FROM organizations WHERE admin_user_id = ?').get(user.id);
+    if ((user.role === 'org_admin' || user.role === 'org_operator') && user.organization_id) {
+      organization = db.prepare('SELECT id, name, status FROM organizations WHERE id = ?').get(user.organization_id);
     }
 
     res.json({
@@ -148,14 +148,14 @@ router.post('/logout', authenticate, (req, res) => {
 router.get('/me', authenticate, (req, res) => {
   const db = getDb();
   const user = db.prepare(`
-    SELECT id, email, role, first_name, last_name, phone, created_at, last_login
+    SELECT id, email, role, first_name, last_name, phone, organization_id, created_at, last_login
     FROM users WHERE id = ?
   `).get(req.user.id);
   
   // Se è org_admin o org_operator, includi info organizzazione
   let organization = null;
-  if (user.role === 'org_admin' || user.role === 'org_operator') {
-    organization = db.prepare('SELECT id, name, status FROM organizations WHERE admin_user_id = ?').get(user.id);
+  if ((user.role === 'org_admin' || user.role === 'org_operator') && user.organization_id) {
+    organization = db.prepare('SELECT id, name, status FROM organizations WHERE id = ?').get(user.organization_id);
   }
 
   res.json({ ...user, organization });
@@ -222,9 +222,8 @@ router.get('/badges', authenticate, (req, res) => {
       badges.audits = db.prepare("SELECT COUNT(*) as n FROM audits WHERE auditor_id = ? AND status IN ('planned','in_progress')").get(req.user.id).n;
     } else if (req.user.role === 'org_admin' || req.user.role === 'org_operator') {
       // Certificazioni con aggiornamenti (stati intermedi che richiedono attenzione)
-      const org = db.prepare('SELECT id FROM organizations WHERE admin_user_id = ?').get(req.user.id);
-      if (org) {
-        badges.certifications = db.prepare("SELECT COUNT(*) as n FROM certifications WHERE organization_id = ? AND status IN ('doc_rejected','audit_completed','rejected')").get(org.id).n;
+      if (req.user.organization_id) {
+        badges.certifications = db.prepare("SELECT COUNT(*) as n FROM certifications WHERE organization_id = ? AND status IN ('doc_rejected','audit_completed','rejected')").get(req.user.organization_id).n;
       }
     }
 

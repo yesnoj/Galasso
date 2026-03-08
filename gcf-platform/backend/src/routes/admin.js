@@ -209,8 +209,8 @@ router.get('/users', authenticate, authorize('admin'), (req, res) => {
     const db = getDb();
     const users = db.prepare(`
       SELECT u.id, u.email, u.role, u.first_name, u.last_name, u.phone, u.is_active, u.email_verified, u.last_login, u.created_at,
-        o.id as organization_id, o.name as organization_name
-      FROM users u LEFT JOIN organizations o ON o.admin_user_id = u.id
+        u.organization_id, o.name as organization_name
+      FROM users u LEFT JOIN organizations o ON u.organization_id = o.id
       ORDER BY u.created_at DESC
     `).all();
     res.json(users);
@@ -244,13 +244,14 @@ router.post('/users', authenticate, authorize('admin'), (req, res) => {
 
     const id = uuidv4();
     const hash = bcrypt.hashSync(password, 10);
+    const userOrgId = (organizationId && (role === 'org_admin' || role === 'org_operator')) ? organizationId : null;
     db.prepare(`
-      INSERT INTO users (id, email, password_hash, role, first_name, last_name, phone, is_active, email_verified)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1)
-    `).run(id, email.toLowerCase(), hash, role, firstName, lastName, phone || null);
+      INSERT INTO users (id, email, password_hash, role, first_name, last_name, phone, organization_id, is_active, email_verified)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1)
+    `).run(id, email.toLowerCase(), hash, role, firstName, lastName, phone || null, userOrgId);
 
-    // Associa organizzazione se specificata
-    if (organizationId && (role === 'org_admin' || role === 'org_operator')) {
+    // Se è org_admin, imposta anche admin_user_id sull'organizzazione
+    if (organizationId && role === 'org_admin') {
       db.prepare('UPDATE organizations SET admin_user_id = ? WHERE id = ?').run(id, organizationId);
     }
 
@@ -276,11 +277,18 @@ router.put('/users/:id', authenticate, authorize('admin'), (req, res) => {
 
     // Gestisci associazione organizzazione
     if (organizationId !== undefined) {
-      // Rimuovi vecchia associazione
-      db.prepare('UPDATE organizations SET admin_user_id = NULL WHERE admin_user_id = ?').run(req.params.id);
-      // Imposta nuova se specificata
-      if (organizationId) {
-        db.prepare('UPDATE organizations SET admin_user_id = ? WHERE id = ?').run(req.params.id, organizationId);
+      // Aggiorna organization_id sull'utente
+      db.prepare('UPDATE users SET organization_id = ? WHERE id = ?').run(organizationId || null, req.params.id);
+      
+      // Se è org_admin, aggiorna anche admin_user_id sull'organizzazione
+      const userRole = role || db.prepare('SELECT role FROM users WHERE id = ?').get(req.params.id)?.role;
+      if (userRole === 'org_admin') {
+        // Rimuovi vecchia associazione admin_user_id
+        db.prepare('UPDATE organizations SET admin_user_id = NULL WHERE admin_user_id = ?').run(req.params.id);
+        // Imposta nuova se specificata
+        if (organizationId) {
+          db.prepare('UPDATE organizations SET admin_user_id = ? WHERE id = ?').run(req.params.id, organizationId);
+        }
       }
     }
 

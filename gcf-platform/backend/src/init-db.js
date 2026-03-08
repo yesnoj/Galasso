@@ -12,7 +12,7 @@ async function main() {
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
       role TEXT NOT NULL, first_name TEXT NOT NULL, last_name TEXT NOT NULL,
-      phone TEXT, is_active INTEGER DEFAULT 1, email_verified INTEGER DEFAULT 0,
+      phone TEXT, organization_id TEXT, is_active INTEGER DEFAULT 1, email_verified INTEGER DEFAULT 0,
       last_login TEXT, created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now'))
     );
     CREATE TABLE IF NOT EXISTS refresh_tokens (
@@ -163,6 +163,21 @@ async function main() {
   } catch (e) {
     console.log('Migrazione: aggiunta colonna ente_user_id a beneficiaries...');
     db.exec("ALTER TABLE beneficiaries ADD COLUMN ente_user_id TEXT");
+  }
+
+  // Migrazione: aggiunge organization_id a users (per database esistenti)
+  try {
+    db.prepare("SELECT organization_id FROM users LIMIT 1").get();
+  } catch (e) {
+    console.log('Migrazione: aggiunta colonna organization_id a users...');
+    db.exec("ALTER TABLE users ADD COLUMN organization_id TEXT");
+    // Popola organization_id dagli admin_user_id esistenti
+    const orgs = db.prepare("SELECT id, admin_user_id FROM organizations WHERE admin_user_id IS NOT NULL").all();
+    const updateUser = db.prepare("UPDATE users SET organization_id = ? WHERE id = ?");
+    orgs.forEach(org => {
+      updateUser.run(org.id, org.admin_user_id);
+    });
+    if (orgs.length > 0) console.log(`Migrazione: ${orgs.length} utenti collegati alle organizzazioni.`);
   }
 
   // Dati di riferimento — Standard SNM-AS (14 requisiti, 5 aree)
