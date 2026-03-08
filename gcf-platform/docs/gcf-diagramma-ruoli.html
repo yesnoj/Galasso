@@ -259,6 +259,7 @@ const DATA = {
       { name: 'Registra attività', type: 'create', detail: 'Beneficiario obbligatorio (dropdown auto-filtrato per organizzazione). Durata in ore (step 0.5).' },
       { name: 'Modifica attività', type: 'update', detail: 'Modifica durata, servizio, descrizione.' },
       { name: 'Elimina attività', type: 'delete', detail: 'Elimina attività con conferma.' },
+      { name: 'Report Excel beneficiari', type: 'download', detail: 'Genera un report Excel con i dati dei beneficiari. Filtri disponibili: periodo attività (da/a) e ente inviante. Il report include una colonna vuota "Nome e Cognome" (sfondo giallo) da compilare offline. Disclaimer GDPR incluso. Il file NON va ricaricato sulla piattaforma.', steps: ['Vai su 👥 Beneficiari', 'Clicca "📊 Genera report Excel"', 'Imposta periodo e/o ente inviante (opzionali)', 'Clicca "📥 Scarica Report Excel"', 'Apri il file .xlsx in Excel', 'Compila la colonna gialla con i nomi reali', 'Conserva il file solo in locale'] },
     ]},
     { section: '🗂️ Altro', actions: [
       { name: 'Registro Pubblico', type: 'read', detail: 'Consulta e lascia recensioni.' },
@@ -284,6 +285,7 @@ const DATA = {
       { name: 'Registra attività', type: 'create', detail: 'Beneficiario obbligatorio (dropdown). Durata in ore.' },
       { name: 'Modifica attività', type: 'update', detail: 'Modifica qualsiasi campo dell\'attività.' },
       { name: 'Elimina attività', type: 'delete', detail: 'Elimina con conferma.' },
+      { name: 'Report Excel beneficiari', type: 'download', detail: 'Genera un report Excel con i dati dei beneficiari. Filtri: periodo e ente inviante. Colonna "Nome e Cognome" vuota da compilare offline.' },
     ]},
     { section: '🗂️ Altro', actions: [
       { name: 'Registro Pubblico', type: 'read', detail: 'Consulta il registro.' },

@@ -28,6 +28,253 @@ router.get('/enti-referenti', authenticate, (req, res) => {
 });
 
 // ============================================================
+// REPORT EXCEL BENEFICIARI
+// ============================================================
+
+// GET /api/beneficiaries/report - Genera report Excel beneficiari
+router.get('/report', authenticate, authorize('org_admin', 'org_operator'), async (req, res) => {
+  try {
+    const ExcelJS = require('exceljs');
+    const db = getDb();
+    const { from, to, referring_entity } = req.query;
+
+    // Trova l'organizzazione dell'utente
+    const org = db.prepare('SELECT id, name FROM organizations WHERE admin_user_id = ?').get(req.user.id);
+    if (!org) return res.status(400).json({ error: 'Nessuna organizzazione associata' });
+
+    // Query beneficiari con filtri
+    let where = 'b.organization_id = ?';
+    let params = [org.id];
+    if (referring_entity) { where += ' AND b.referring_entity LIKE ?'; params.push(`%${referring_entity}%`); }
+
+    const beneficiaries = db.prepare(`
+      SELECT b.id, b.code, b.target_type, b.referring_entity, b.referring_contact, b.ente_user_id,
+        b.status, b.start_date, b.notes,
+        eu.first_name || ' ' || eu.last_name as ente_referente_name
+      FROM beneficiaries b
+      LEFT JOIN users eu ON b.ente_user_id = eu.id
+      WHERE ${where}
+      ORDER BY b.code
+    `).all(...params);
+
+    // Per ogni beneficiario, calcola attività nel periodo
+    let actWhere = 'al.beneficiary_id = ?';
+    let actParams = [];
+    if (from) actWhere += ' AND al.activity_date >= ?';
+    if (to) actWhere += ' AND al.activity_date <= ?';
+
+    const TARGET_LABELS = {
+      minori: 'Minori', giovani: 'Giovani', anziani: 'Anziani', disabili: 'Disabili',
+      dipendenze: 'Dipendenze', salute_mentale: 'Salute mentale', immigrati: 'Immigrati',
+      detenuti_ex: 'Detenuti/ex-detenuti', senza_dimora: 'Senza dimora',
+      donne_violenza: 'Donne vittime di violenza', nomadi: 'Nomadi',
+      disagio_socioeconomico: 'Disagio socio-economico', altro: 'Altro'
+    };
+    const STATUS_LABELS = { active: 'Attivo', completed: 'Completato', suspended: 'Sospeso', abandoned: 'Abbandonato' };
+    const SERVICE_LABELS = {
+      coterapia_piante: 'Coterapia con piante', coterapia_animali: 'Coterapia con animali',
+      socio_ricreativa: 'Attività socio-ricreativa', educativa: 'Attività educativa',
+      inserimento_lavorativo: 'Inserimento lavorativo', formazione: 'Formazione'
+    };
+
+    const rows = beneficiaries.map(b => {
+      let ap = [b.id];
+      if (from) ap.push(from);
+      if (to) ap.push(to);
+
+      const activities = db.prepare(`
+        SELECT service_type, duration_minutes FROM activity_logs al WHERE ${actWhere}
+      `).all(...ap);
+
+      const totalAct = activities.length;
+      const totalMinutes = activities.reduce((s, a) => s + (a.duration_minutes || 0), 0);
+      const totalHours = Math.round(totalMinutes / 60 * 10) / 10;
+      const serviceTypes = [...new Set(activities.map(a => SERVICE_LABELS[a.service_type] || a.service_type).filter(Boolean))];
+
+      return {
+        code: b.code,
+        targetType: TARGET_LABELS[b.target_type] || b.target_type || '',
+        status: STATUS_LABELS[b.status] || b.status || '',
+        referringEntity: b.referring_entity || '',
+        referringContact: b.referring_contact || '',
+        enteReferente: b.ente_referente_name || '',
+        startDate: b.start_date || '',
+        totalActivities: totalAct,
+        totalHours: totalHours,
+        serviceTypes: serviceTypes.join(', '),
+        notes: b.notes || ''
+      };
+    });
+
+    // Genera Excel
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'GCF Platform - AICARE';
+    wb.created = new Date();
+
+    const ws = wb.addWorksheet('Report Beneficiari');
+
+    // --- INTESTAZIONE ---
+    ws.mergeCells('A1:K1');
+    const titleCell = ws.getCell('A1');
+    titleCell.value = `REPORT BENEFICIARI — ${org.name}`;
+    titleCell.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FF1A3D17' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 35;
+
+    ws.mergeCells('A2:K2');
+    const subtitleParts = ['Piattaforma Green Care Farm Certificata — AICARE'];
+    if (from || to) subtitleParts.push(`Periodo: ${from || '...'} — ${to || '...'}`);
+    if (referring_entity) subtitleParts.push(`Ente inviante: ${referring_entity}`);
+    const subtitleCell = ws.getCell('A2');
+    subtitleCell.value = subtitleParts.join('  |  ');
+    subtitleCell.font = { name: 'Arial', size: 10, italic: true, color: { argb: 'FF666666' } };
+    subtitleCell.alignment = { horizontal: 'center' };
+
+    ws.mergeCells('A3:K3');
+    ws.getCell('A3').value = `Report generato il ${new Date().toLocaleDateString('it-IT')} alle ${new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}`;
+    ws.getCell('A3').font = { name: 'Arial', size: 9, color: { argb: 'FF999999' } };
+    ws.getCell('A3').alignment = { horizontal: 'center' };
+
+    // Riga vuota
+    ws.getRow(4).height = 10;
+
+    // --- HEADER TABELLA ---
+    const headers = [
+      'Codice Beneficiario',
+      'Nome e Cognome\n(da compilare a cura\ndell\'organizzazione)',
+      'Tipologia Utenza',
+      'Stato',
+      'Ente Inviante',
+      'Contatto Ente',
+      'Ente Referente Collegato',
+      'Data Inizio',
+      'N. Attività',
+      'Ore Totali',
+      'Servizi Erogati'
+    ];
+
+    const headerRow = ws.addRow(headers);
+    headerRow.eachCell((cell) => {
+      cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D5A27' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FF1A3D17' } },
+        bottom: { style: 'thin', color: { argb: 'FF1A3D17' } },
+        left: { style: 'thin', color: { argb: 'FF1A3D17' } },
+        right: { style: 'thin', color: { argb: 'FF1A3D17' } }
+      };
+    });
+    headerRow.height = 45;
+
+    // --- DATI ---
+    rows.forEach((r, idx) => {
+      const dataRow = ws.addRow([
+        r.code,
+        '', // Colonna vuota per nome e cognome
+        r.targetType,
+        r.status,
+        r.referringEntity,
+        r.referringContact,
+        r.enteReferente,
+        r.startDate ? new Date(r.startDate).toLocaleDateString('it-IT') : '',
+        r.totalActivities,
+        r.totalHours,
+        r.serviceTypes
+      ]);
+
+      const isEven = idx % 2 === 0;
+      dataRow.eachCell((cell, colNumber) => {
+        cell.font = { name: 'Arial', size: 10 };
+        cell.alignment = { vertical: 'middle', wrapText: colNumber === 11 };
+        cell.border = {
+          bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+          left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+          right: { style: 'thin', color: { argb: 'FFE0E0E0' } }
+        };
+        if (isEven) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F9F4' } };
+        }
+        // Colonna Nome e Cognome con sfondo giallo
+        if (colNumber === 2) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9C4' } };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFFFC107' } },
+            bottom: { style: 'thin', color: { argb: 'FFFFC107' } },
+            left: { style: 'thin', color: { argb: 'FFFFC107' } },
+            right: { style: 'thin', color: { argb: 'FFFFC107' } }
+          };
+        }
+        // Numeri centrati
+        if (colNumber === 9 || colNumber === 10) {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        }
+      });
+    });
+
+    // --- RIEPILOGO ---
+    const summaryStartRow = ws.lastRow.number + 2;
+    ws.mergeCells(`A${summaryStartRow}:C${summaryStartRow}`);
+    ws.getCell(`A${summaryStartRow}`).value = 'RIEPILOGO';
+    ws.getCell(`A${summaryStartRow}`).font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF1A3D17' } };
+
+    const totalBen = rows.length;
+    const totalActAll = rows.reduce((s, r) => s + r.totalActivities, 0);
+    const totalHoursAll = rows.reduce((s, r) => s + r.totalHours, 0);
+    const activeCount = rows.filter(r => r.status === 'Attivo').length;
+
+    const summaryData = [
+      ['Beneficiari totali:', totalBen],
+      ['Di cui attivi:', activeCount],
+      ['Totale attività nel periodo:', totalActAll],
+      ['Totale ore nel periodo:', Math.round(totalHoursAll * 10) / 10],
+    ];
+    summaryData.forEach(([label, value]) => {
+      const row = ws.addRow([label, value]);
+      row.getCell(1).font = { name: 'Arial', size: 10, bold: true };
+      row.getCell(2).font = { name: 'Arial', size: 10 };
+    });
+
+    // --- DISCLAIMER ---
+    const disclaimerRow = ws.lastRow.number + 2;
+    ws.mergeCells(`A${disclaimerRow}:K${disclaimerRow}`);
+    const discCell = ws.getCell(`A${disclaimerRow}`);
+    discCell.value = '⚠️ DOCUMENTO RISERVATO — I codici beneficiario sono pseudonimi ai sensi del GDPR. L\'associazione con i dati identificativi è responsabilità esclusiva dell\'organizzazione e NON deve essere caricata sulla piattaforma.';
+    discCell.font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FFCC0000' } };
+    discCell.alignment = { wrapText: true };
+    ws.getRow(disclaimerRow).height = 35;
+
+    // --- LARGHEZZE COLONNE ---
+    ws.getColumn(1).width = 22;  // Codice
+    ws.getColumn(2).width = 25;  // Nome e Cognome
+    ws.getColumn(3).width = 18;  // Tipologia
+    ws.getColumn(4).width = 14;  // Stato
+    ws.getColumn(5).width = 22;  // Ente inviante
+    ws.getColumn(6).width = 20;  // Contatto
+    ws.getColumn(7).width = 22;  // Ente referente
+    ws.getColumn(8).width = 14;  // Data inizio
+    ws.getColumn(9).width = 12;  // N. Attività
+    ws.getColumn(10).width = 12; // Ore totali
+    ws.getColumn(11).width = 35; // Servizi
+
+    // Blocca header
+    ws.views = [{ state: 'frozen', ySplit: 5 }];
+
+    // Genera e invia
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `report_beneficiari_${org.name.replace(/[^a-zA-Z0-9]/g, '_')}_${dateStr}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    await wb.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error('Report generation error:', err);
+    res.status(500).json({ error: 'Errore nella generazione del report: ' + err.message });
+  }
+});
+
+// ============================================================
 // ATTIVITÀ (must be BEFORE /:id to avoid route conflict)
 // ============================================================
 

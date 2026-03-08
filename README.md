@@ -456,6 +456,7 @@ SISTEMA
 |--------|----------|-------------|------|
 | GET | `/beneficiaries` | Lista beneficiari (filtrata per ruolo/ente) | ✅ |
 | GET | `/beneficiaries/enti-referenti` | Lista enti referenti per dropdown | ✅ |
+| GET | `/beneficiaries/report` | Genera report Excel beneficiari | Org Admin/Op |
 | GET | `/beneficiaries/:id` | Dettaglio beneficiario | ✅ |
 | POST | `/beneficiaries` | Crea beneficiario | Org Admin/Op |
 | PUT | `/beneficiaries/:id` | Modifica beneficiario | Org Admin/Op |
@@ -495,7 +496,7 @@ SISTEMA
 | GET | `/registry/regions` | Regioni con organizzazioni | No |
 | GET | `/registry/search` | Ricerca organizzazioni | No |
 
-**Totale: 64 endpoint**
+**Totale: 65 endpoint**
 
 ---
 
@@ -518,6 +519,7 @@ SISTEMA
 | Visualizzare checklist (sola lettura) | ✅ | — | ✅* | ✅* | ❌ |
 | Rilasciare certificato | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Beneficiari (CRUD) | 👁 | ❌ | ✅* | ✅* | 👁† |
+| Report Excel beneficiari | ❌ | ❌ | ✅* | ✅* | ❌ |
 | Attività (CRUD) | 👁 | ❌ | ✅* | ✅* | ❌ |
 | Gestione utenti | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Moderazione recensioni | ✅ | ❌ | ❌ | ❌ | ❌ |
@@ -713,6 +715,14 @@ docker restart gcf-platform
 - Pulsante "← Torna alle certificazioni" nel dettaglio certificazione
 - Pulsante "← Torna al registro" nel dettaglio registro pubblico (utenti loggati)
 - Filtro **regione** aggiunto al registro pubblico
+
+**Report Excel beneficiari**
+- Generazione report Excel (.xlsx) dalla pagina Beneficiari (org_admin e org_operator)
+- Filtri: periodo attività (da/a) e ente inviante
+- Colonna "Nome e Cognome" vuota con sfondo giallo, da compilare offline dall'organizzazione
+- Riepilogo: beneficiari totali, attivi, attività e ore nel periodo
+- Disclaimer GDPR in fondo: i codici sono pseudonimi, l'associazione con dati identificativi è offline
+- La piattaforma non ospita mai dati personali identificativi dei beneficiari
 
 **Miglioramenti UI**
 - Telefono: prefisso e numero sulla stessa riga

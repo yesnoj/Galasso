@@ -1812,7 +1812,10 @@ async function renderBeneficiaries() {
   const canAdd = ['org_admin', 'org_operator'].includes(state.user.role);
 
   $('#page-content').innerHTML = `
-    ${canAdd ? '<button class="btn btn-primary mb-2" onclick="showAddBeneficiaryModal()">+ Nuovo beneficiario</button>' : ''}
+    ${canAdd ? `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="showAddBeneficiaryModal()">+ Nuovo beneficiario</button>
+      <button class="btn btn-secondary" onclick="showBeneficiaryReportModal()">📊 Genera report Excel</button>
+    </div>` : ''}
     ${bens.length === 0 ? '<div class="empty-state"><div class="icon">👥</div><h3>Nessun beneficiario registrato</h3></div>' : `
       <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
         <input type="text" id="filter-beneficiaries" placeholder="🔍 Filtra per codice, organizzazione, tipologia, ente..." 
@@ -1854,6 +1857,98 @@ async function changeBenStatus(benId, newStatus) {
   if (result) {
     const labels = { active: 'Attivo', completed: 'Completato', suspended: 'Sospeso', dropped: 'Abbandonato' };
     toast(`Stato aggiornato: ${labels[newStatus]}`, 'success');
+  }
+}
+
+function showBeneficiaryReportModal() {
+  // Raccogli gli enti invianti unici dalla tabella corrente
+  const entities = [...new Set(
+    Array.from(document.querySelectorAll('#beneficiaries-table tbody tr'))
+      .map(tr => {
+        const cells = tr.querySelectorAll('td');
+        return cells[4]?.textContent.trim(); // colonna Ente inviante
+      })
+      .filter(e => e && e !== '—')
+  )].sort();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.onclick = (e) => { if(e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:500px">
+      <div class="modal-header">
+        <h3>📊 Genera Report Beneficiari</h3>
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom:16px;font-size:14px;color:#555">Il report Excel conterrà i dati dei beneficiari con una colonna vuota per l'associazione Nome e Cognome, da compilare a cura dell'organizzazione.</p>
+
+        <div class="form-group" style="margin-bottom:12px">
+          <label style="font-weight:600">Periodo attività</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="date" id="report-from" style="flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px">
+            <span style="color:#888">—</span>
+            <input type="date" id="report-to" style="flex:1;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px">
+          </div>
+          <div style="font-size:11px;color:#888;margin-top:4px">Se non compilato, include tutte le attività</div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:16px">
+          <label style="font-weight:600">Filtra per ente inviante</label>
+          <select id="report-entity" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px">
+            <option value="">Tutti gli enti</option>
+            ${entities.map(e => `<option value="${e}">${e}</option>`).join('')}
+          </select>
+        </div>
+
+        <div style="background:#f5f9f4;border:1px solid #c8e6c9;border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px">
+          <strong>🔒 Privacy</strong><br>
+          Il report contiene solo codici anonimi. La colonna "Nome e Cognome" è vuota e va compilata offline dall'organizzazione. Non ricaricare il file compilato sulla piattaforma.
+        </div>
+
+        <button class="btn btn-primary btn-block" onclick="downloadBeneficiaryReport()">
+          📥 Scarica Report Excel
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+}
+
+async function downloadBeneficiaryReport() {
+  const from = document.getElementById('report-from')?.value || '';
+  const to = document.getElementById('report-to')?.value || '';
+  const entity = document.getElementById('report-entity')?.value || '';
+
+  let url = `${API}/beneficiaries/report?`;
+  if (from) url += `from=${from}&`;
+  if (to) url += `to=${to}&`;
+  if (entity) url += `referring_entity=${encodeURIComponent(entity)}&`;
+
+  try {
+    const resp = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      toast(err.error || 'Errore generazione report', 'error');
+      return;
+    }
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const cd = resp.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename="(.+)"/);
+    a.download = match ? match[1] : 'report_beneficiari.xlsx';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast('Report scaricato!', 'success');
+
+    // Chiudi modal
+    document.querySelector('.modal-overlay')?.remove();
+  } catch(e) {
+    toast('Errore nel download del report', 'error');
   }
 }
 
