@@ -98,7 +98,7 @@ router.post('/', authenticate, authorize('admin', 'org_admin'), (req, res) => {
 
     // Verifica se esiste già una certificazione attiva/in corso
     const existing = db.prepare(`
-      SELECT id FROM certifications WHERE organization_id = ? AND status NOT IN ('rejected','expired')
+      SELECT id FROM certifications WHERE organization_id = ? AND status NOT IN ('rejected','expired','suspended')
     `).get(organizationId);
 
     if (existing) {
@@ -186,6 +186,33 @@ router.put('/:id/status', authenticate, authorize('admin', 'auditor'), (req, res
     params.push(req.params.id);
 
     db.prepare(sql).run(...params);
+
+    // Se la certificazione viene revocata/sospesa, notifica l'organizzazione
+    if (status === 'suspended') {
+      const cert = db.prepare(`
+        SELECT c.cert_number, c.organization_id, o.admin_user_id
+        FROM certifications c JOIN organizations o ON c.organization_id = o.id
+        WHERE c.id = ?
+      `).get(req.params.id);
+      if (cert && cert.admin_user_id) {
+        const notifId = uuidv4();
+        const reason = (notes || '').replace('REVOCATA: ', '');
+        db.prepare(`
+          INSERT INTO notifications (id, user_id, type, title, message, is_read, created_at)
+          VALUES (?, ?, 'certification', ?, ?, 0, datetime('now'))
+        `).run(notifId, cert.admin_user_id, 
+          `Certificazione ${cert.cert_number || ''} revocata`,
+          `La certificazione è stata revocata. Motivazione: ${reason}. È possibile richiedere una nuova certificazione.`
+        );
+        // Notifica anche tutti gli operatori della stessa org
+        const operators = db.prepare("SELECT id FROM users WHERE organization_id = ? AND role = 'org_operator' AND is_active = 1").all(cert.organization_id);
+        operators.forEach(op => {
+          db.prepare(`INSERT INTO notifications (id, user_id, type, title, message, is_read, created_at) VALUES (?, ?, 'certification', ?, ?, 0, datetime('now'))`)
+          .run(uuidv4(), op.id, `Certificazione ${cert.cert_number || ''} revocata`, `La certificazione è stata revocata. Motivazione: ${reason}.`);
+        });
+      }
+    }
+
     res.json({ message: 'Status certificazione aggiornato', ...updates });
   } catch (err) {
     console.error('Update cert status error:', err);

@@ -713,6 +713,12 @@ async function renderDashboard() {
         <div class="stat-card"><div class="stat-value">${bens ? bens.reduce((s, b) => s + (b.activity_count || 0), 0) : 0}</div><div class="stat-label">Attività totali</div></div>
       </div>
       ${certs && certs.length > 0 ? `
+        ${certs.some(c => c.status === 'suspended') ? `
+          <div style="background:#fce4ec;border:1px solid #e53935;border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:14px;color:#b71c1c">
+            ⛔ <strong>Certificazione revocata</strong> — ${sanitize(certs.find(c => c.status === 'suspended')?.notes || 'Contattare AICARE per maggiori informazioni.')}
+            ${state.user.role === 'org_admin' ? '<br><a href="#certifications" style="color:#b71c1c;font-weight:600">📜 Vai alle certificazioni per richiederne una nuova</a>' : ''}
+          </div>
+        ` : ''}
         <div class="card mb-2">
           <div class="card-header"><h3>Le mie certificazioni</h3></div>
           <div class="card-body"><div class="table-container"><table class="card-table">
@@ -1172,6 +1178,12 @@ async function renderCertificationDetail(id) {
     certPdfBtn = `<button class="btn btn-primary mt-2" onclick="downloadCertificatePdf('${id}', '${cert.cert_number || 'GCF'}')">📄 Scarica Certificato PDF</button>`;
   }
 
+  // Pulsante revoca certificazione (solo admin, solo se issued)
+  let revokeBtn = '';
+  if (isAdmin && cert.status === 'issued') {
+    revokeBtn = `<button class="btn btn-danger mt-2" style="margin-left:8px" onclick="revokeCertification('${id}')">🚫 Revoca certificazione</button>`;
+  }
+
   // Carica documenti allegati
   const docs = await api(`/certifications/${id}/documents`) || [];
   const docsHtml = docs.length > 0 ? `
@@ -1201,6 +1213,13 @@ async function renderCertificationDetail(id) {
     <div class="card mb-2">
       <div class="card-header"><h3>Certificazione ${cert.cert_number || ''}</h3></div>
       <div class="card-body">
+        ${cert.status === 'suspended' && cert.notes ? `
+          <div style="background:#fce4ec;border:1px solid #e53935;border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:14px;color:#b71c1c">
+            ⛔ <strong>Certificazione revocata</strong><br>
+            <span style="font-size:13px">${sanitize(cert.notes)}</span>
+            ${['org_admin'].includes(state.user.role) ? '<br><br><em>È possibile richiedere una nuova certificazione dalla pagina Certificazioni.</em>' : ''}
+          </div>
+        ` : ''}
         <div class="form-row">
           <div><strong>Organizzazione:</strong> <a href="#organization-detail/${cert.organization_id}" style="color:var(--primary)">${sanitize(cert.org_name)}</a></div>
           <div><strong>Stato:</strong> ${badge(cert.status)}</div>
@@ -1216,6 +1235,7 @@ async function renderCertificationDetail(id) {
         ${actionsHtml}
         ${auditBtn}
         ${certPdfBtn}
+        ${revokeBtn}
         ${uploadBtn}
       </div>
     </div>
@@ -1244,6 +1264,17 @@ async function updateCertStatus(certId, status) {
   } else {
     doUpdateCertStatus(certId, status, null);
   }
+}
+
+function revokeCertification(certId) {
+  showInputModal('Revoca certificazione', 'Inserisci la motivazione per la revoca della certificazione. L\'organizzazione non potrà più registrare beneficiari e attività fino a una nuova certificazione.', 'Motivazione revoca...', async (notes) => {
+    if (!notes || !notes.trim()) { toast('La motivazione è obbligatoria', 'error'); return; }
+    const result = await api(`/certifications/${certId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'suspended', notes: 'REVOCATA: ' + notes.trim() })
+    });
+    if (result) { toast('Certificazione revocata', 'success'); renderCertificationDetail(certId); }
+  });
 }
 
 async function downloadCertDoc(docId, fileName) {
@@ -1596,9 +1627,9 @@ async function renderAuditChecklist(auditId) {
     ${certDocs.length > 0 ? `
     <div class="card mb-2">
       <div class="card-header" style="cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.querySelector('.arrow-docs').textContent=this.nextElementSibling.style.display==='none'?'▶':'▼'">
-        <h3>📎 Documenti allegati dall'organizzazione (${certDocs.length}) <span class="arrow-docs" style="font-size:12px;margin-left:8px">▶</span></h3>
+        <h3>📎 Documenti allegati dall'organizzazione (${certDocs.length}) <span class="arrow-docs" style="font-size:12px;margin-left:8px">▼</span></h3>
       </div>
-      <div class="card-body" style="display:none">
+      <div class="card-body">
         <div class="table-container"><table class="card-table">
           <thead><tr><th>Nome file</th><th>Dimensione</th><th>Caricato da</th><th>Data</th><th>Scarica</th></tr></thead>
           <tbody>${certDocs.map(d => `<tr>
@@ -1611,7 +1642,12 @@ async function renderAuditChecklist(auditId) {
         </table></div>
       </div>
     </div>
-    ` : ''}
+    ` : `
+    <div class="card mb-2">
+      <div class="card-header"><h3>📎 Documenti allegati dall'organizzazione</h3></div>
+      <div class="card-body"><p class="text-muted">Nessun documento allegato dall'organizzazione per questa certificazione.</p></div>
+    </div>
+    `}
     <form id="audit-form">
   `;
 
@@ -1899,15 +1935,11 @@ async function changeBenStatus(benId, newStatus) {
   }
 }
 
-function showBeneficiaryReportModal() {
-  // Raccogli gli enti invianti unici dalla tabella corrente
+async function showBeneficiaryReportModal() {
+  // Raccogli enti invianti unici dall'API (più affidabile del DOM)
+  const bens = await api('/beneficiaries') || [];
   const entities = [...new Set(
-    Array.from(document.querySelectorAll('#beneficiaries-table tbody tr'))
-      .map(tr => {
-        const cells = tr.querySelectorAll('td');
-        return cells[4]?.textContent.trim(); // colonna Ente inviante
-      })
-      .filter(e => e && e !== '—')
+    bens.map(b => (b.referring_entity || '').trim()).filter(e => e)
   )].sort();
 
   const overlay = document.createElement('div');
@@ -1959,6 +1991,11 @@ async function downloadBeneficiaryReport() {
   const from = document.getElementById('report-from')?.value || '';
   const to = document.getElementById('report-to')?.value || '';
   const entity = document.getElementById('report-entity')?.value || '';
+
+  if (from && to && from > to) {
+    toast('La data "Da" non può essere successiva alla data "A"', 'error');
+    return;
+  }
 
   let url = `${API}/beneficiaries/report?`;
   if (from) url += `from=${from}&`;
@@ -2411,8 +2448,8 @@ async function renderOrganizationDetail(id) {
   const isOwner = ['org_admin','org_operator'].includes(state.user.role) && state.user.organization?.id === id;
   const canManageImages = isAdmin || (state.user.role === 'org_admin' && state.user.organization?.id === id);
 
-  const backTarget = state.user.role === 'ente_referente' ? 'beneficiaries' : 'organizations';
-  const backLabel = state.user.role === 'ente_referente' ? '← Torna ai beneficiari' : '← Torna alle organizzazioni';
+  const backTarget = state.user.role === 'ente_referente' ? 'beneficiaries' : state.user.role === 'auditor' ? 'audits' : 'organizations';
+  const backLabel = state.user.role === 'ente_referente' ? '← Torna ai beneficiari' : state.user.role === 'auditor' ? '← Torna agli audit' : '← Torna alle organizzazioni';
 
   $('#page-content').innerHTML = `
     <div style="margin-bottom:12px">
@@ -2530,6 +2567,25 @@ async function renderOrganizationDetail(id) {
               </div>
               <button class="btn btn-secondary btn-sm" onclick="uploadOrgDocFromDetail('${id}')">📎 Carica</button>
             </div>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+    ` : ''}
+
+    ${(org.services && org.services.length > 0) || (org.targets && org.targets.length > 0) ? `
+    <div class="card mb-2">
+      <div class="card-body" style="display:flex;gap:24px;flex-wrap:wrap">
+        ${org.services && org.services.length > 0 ? `
+          <div style="flex:1;min-width:250px">
+            <h4 style="margin-bottom:8px;color:var(--primary)">🌿 Servizi offerti</h4>
+            ${org.services.map(s => `<p style="margin:4px 0;font-size:14px">✅ ${SERVICE_LABELS[s.service_type] || s.service_type}${s.description ? ` — <span style="color:#666">${sanitize(s.description)}</span>` : ''}</p>`).join('')}
+          </div>
+        ` : ''}
+        ${org.targets && org.targets.length > 0 ? `
+          <div style="flex:1;min-width:250px">
+            <h4 style="margin-bottom:8px;color:var(--primary)">👥 Target utenza</h4>
+            ${org.targets.map(t => `<p style="margin:4px 0;font-size:14px">👤 ${TARGET_LABELS[t.target_type] || t.target_type}${t.notes ? ` — <span style="color:#666">${sanitize(t.notes)}</span>` : ''}</p>`).join('')}
           </div>
         ` : ''}
       </div>

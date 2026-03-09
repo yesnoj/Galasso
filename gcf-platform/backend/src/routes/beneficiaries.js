@@ -107,6 +107,9 @@ router.get('/report', authenticate, authorize('org_admin', 'org_operator'), asyn
       };
     });
 
+    // Se è specificato un periodo, escludi beneficiari senza attività nel periodo
+    const filteredRows = (from || to) ? rows.filter(r => r.totalActivities > 0) : rows;
+
     // Genera Excel
     const wb = new ExcelJS.Workbook();
     wb.creator = 'GCF Platform - AICARE';
@@ -169,7 +172,7 @@ router.get('/report', authenticate, authorize('org_admin', 'org_operator'), asyn
     headerRow.height = 45;
 
     // --- DATI ---
-    rows.forEach((r, idx) => {
+    filteredRows.forEach((r, idx) => {
       const dataRow = ws.addRow([
         r.code,
         '', // Colonna vuota per nome e cognome
@@ -219,10 +222,10 @@ router.get('/report', authenticate, authorize('org_admin', 'org_operator'), asyn
     ws.getCell(`A${summaryStartRow}`).value = 'RIEPILOGO';
     ws.getCell(`A${summaryStartRow}`).font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF1A3D17' } };
 
-    const totalBen = rows.length;
-    const totalActAll = rows.reduce((s, r) => s + r.totalActivities, 0);
-    const totalHoursAll = rows.reduce((s, r) => s + r.totalHours, 0);
-    const activeCount = rows.filter(r => r.status === 'Attivo').length;
+    const totalBen = filteredRows.length;
+    const totalActAll = filteredRows.reduce((s, r) => s + r.totalActivities, 0);
+    const totalHoursAll = filteredRows.reduce((s, r) => s + r.totalHours, 0);
+    const activeCount = filteredRows.filter(r => r.status === 'Attivo').length;
 
     const summaryData = [
       ['Beneficiari totali:', totalBen],
@@ -290,6 +293,10 @@ router.get('/activities/list', authenticate, (req, res) => {
     if (req.user.role === 'org_admin' || req.user.role === 'org_operator') {
       if (req.user.organization_id) { where += ' AND al.organization_id = ?'; params.push(req.user.organization_id); }
       else return res.json([]);
+    } else if (req.user.role === 'ente_referente') {
+      // L'ente referente vede solo le attività dei beneficiari collegati al suo utente
+      where += ' AND al.beneficiary_id IN (SELECT id FROM beneficiaries WHERE ente_user_id = ?)';
+      params.push(req.user.id);
     } else if (organization_id) {
       where += ' AND al.organization_id = ?';
       params.push(organization_id);
