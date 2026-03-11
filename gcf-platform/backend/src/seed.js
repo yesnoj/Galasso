@@ -214,12 +214,12 @@ const insertEval = db.prepare(`INSERT INTO audit_evaluations (id, audit_id, requ
 const requirements = db.prepare(`SELECT cr.id, cr.requirement_number, aa.area_number FROM certification_requirements cr JOIN audit_areas aa ON cr.area_id = aa.id ORDER BY cr.sort_order`).all();
 
 const allC = {
-  '1.1': { ch: ['Visura camerale','Statuto/Atto costitutivo','Fascicolo aziendale attivo','Codice ATECO coerente'], n: 'Soggetto legittimato' },
-  '1.2': { ch: ['Descrizione servizi','Documento interno','Materiale informativo'], n: 'Servizi documentati' },
+  '1.1': { ch: ['Visura camerale','Iscrizione albo regionale (se previsto)'], n: 'Soggetto legittimato' },
+  '1.2': { ch: ['Descrizione servizi','Documento interno','Materiale informativo','Sito web'], n: 'Servizi documentati' },
   '1.3': { ch: ['Nomina formale','Organigramma'], n: 'Responsabile designato' },
-  '2.1': { ch: ['Progetti individuali','Convenzioni','Accordi con enti'], n: 'Progettazione strutturata' },
+  '2.1': { ch: ['Progetti individuali','Convenzioni','Accordi con enti/associazioni'], n: 'Progettazione strutturata' },
   '2.2': { ch: ['Registro attività','Report','Note di monitoraggio'], n: 'Monitoraggio regolare' },
-  '2.3': { ch: ['Dichiarazione scritta','Politica inclusione/non discriminazione'], n: 'Impegno formalizzato' },
+  '2.3': { ch: ['Dichiarazione di impegno','Politica inclusione/non discriminazione'], n: 'Impegno formalizzato' },
   '3.1': { ch: ['Titolo disponibilità locali','Documentazione edilizia','Documentazione igienico-sanitaria'], n: 'Struttura conforme' },
   '3.2': { ch: ['Autocertificazione','Documentazione sicurezza (DVR)'], n: 'DVR aggiornato' },
   '3.3': { ch: ['Procedure tutela utenti','Modalità operative','Supervisione'], n: 'Protocolli completi' },
@@ -240,12 +240,12 @@ const allC = {
 
 // Audit 4: Campo Sociale — 10C + 2PC + 2NA
 const a4 = {
-  '1.1': { ev:'C', ch:['Visura camerale','Codice ATECO coerente'], n:'Regolarmente iscritta' },
+  '1.1': { ev:'C', ch:['Visura camerale'], n:'Regolarmente iscritta' },
   '1.2': { ev:'C', ch:['Descrizione servizi','Materiale informativo'], n:'Servizi documentati' },
   '1.3': { ev:'C', ch:['Nomina formale'], n:'Responsabile designato' },
-  '2.1': { ev:'C', ch:['Progetti individuali','Accordi con enti'], n:'Progetti presenti' },
+  '2.1': { ev:'C', ch:['Progetti individuali','Accordi con enti/associazioni'], n:'Progetti presenti' },
   '2.2': { ev:'C', ch:['Registro attività'], n:'Registro compilato' },
-  '2.3': { ev:'C', ch:['Dichiarazione scritta'], n:'Dichiarazione inclusione nello statuto' },
+  '2.3': { ev:'C', ch:['Dichiarazione di impegno'], n:'Dichiarazione inclusione nello statuto' },
   '3.1': { ev:'C', ch:['Titolo disponibilità locali'], n:'Locali in comodato d\'uso' },
   '3.2': { ev:'C', ch:['Autocertificazione','Documentazione sicurezza (DVR)'], n:'DVR presente' },
   '3.3': { ev:'PC', ch:['Modalità operative'], n:'Procedure tutela presenti ma non complete. Mancano protocolli emergenze.' },

@@ -157,7 +157,7 @@ const ROLES = [
   { id: 'auditor', label: 'Auditor', emoji: '🔍', desc: 'Verifica conformità' },
   { id: 'org_admin', label: 'Admin Org.', emoji: '🏠', desc: 'Gestisce organizzazione' },
   { id: 'org_operator', label: 'Operatore', emoji: '👷', desc: 'Operatività quotidiana' },
-  { id: 'ente_referente', label: 'Ente Referente', emoji: '🏛️', desc: 'Monitoraggio' },
+  { id: 'ente_referente', label: 'Istituz. Referente', emoji: '🏛️', desc: 'Monitoraggio' },
 ];
 
 const DATA = {
@@ -258,7 +258,7 @@ const DATA = {
     ]},
     { section: '👥 Beneficiari e 📋 Attività', actions: [
       { name: '⚠️ Prerequisito: certificazione rilasciata', type: 'info', detail: 'La registrazione di beneficiari e attività è possibile SOLO dopo che l\'organizzazione ha ottenuto la certificazione (status "Rilasciata"). Fino a quel momento viene mostrato un banner giallo e i pulsanti di creazione sono nascosti.' },
-      { name: 'Gestisci beneficiari', type: 'create', detail: 'Aggiungi, modifica, elimina beneficiari della propria organizzazione. Codici cliccabili → popup dettaglio. Stato via picklist (Attivo/Completato/Sospeso/Abbandonato). Dropdown "Ente referente collegato" per associare un ente registrato sulla piattaforma e dargli accesso al monitoraggio del beneficiario.' },
+      { name: 'Gestisci beneficiari', type: 'create', detail: 'Aggiungi, modifica, elimina beneficiari della propria organizzazione. Codici cliccabili → popup dettaglio. Stato via picklist (Attivo/Completato/Sospeso/Abbandonato). Dropdown "Istituzione referente collegata" per associare una istituzione referente registrata sulla piattaforma e darle accesso al monitoraggio del beneficiario.' },
       { name: 'Registra attività', type: 'create', detail: 'Beneficiario obbligatorio (dropdown auto-filtrato per organizzazione). Durata in ore (step 0.5).' },
       { name: 'Modifica attività', type: 'update', detail: 'Modifica durata, servizio, descrizione.' },
       { name: 'Elimina attività', type: 'delete', detail: 'Elimina attività con conferma.' },
@@ -302,7 +302,7 @@ const DATA = {
       { name: 'Dashboard', type: 'read', detail: 'Panoramica generale.' },
     ]},
     { section: '👥 Monitoraggio', actions: [
-      { name: 'Visualizza beneficiari', type: 'read', detail: 'Visualizzazione in sola lettura dei beneficiari collegati al proprio utente. L\'ente vede SOLO i beneficiari che le organizzazioni hanno associato al suo profilo tramite il dropdown "Ente referente collegato" nella scheda beneficiario. Se non ci sono beneficiari collegati, la lista è vuota.' },
+      { name: 'Visualizza beneficiari', type: 'read', detail: 'Visualizzazione in sola lettura dei beneficiari collegati al proprio utente. L\'istituzione vede SOLO i beneficiari che le organizzazioni hanno associato al suo profilo tramite il dropdown "Istituzione referente collegata" nella scheda beneficiario. Se non ci sono beneficiari collegati, la lista è vuota.' },
       { name: 'Crea report monitoraggio', type: 'create', detail: 'Report con periodo, note progresso, criticità, prossimi passi.' },
     ]},
     { section: '🗂️ Altro', actions: [

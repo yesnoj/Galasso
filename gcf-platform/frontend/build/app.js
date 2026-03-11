@@ -383,7 +383,7 @@ function renderLayout(title, content, actions = '') {
   const isEnte = u.role === 'ente_referente';
 
   const roleLabel = {admin:'Amministratore',auditor:'Auditor',org_admin:'Admin Organizzazione',
-    org_operator:'Operatore',ente_referente:'Ente Referente',public:'Utente'}[u.role];
+    org_operator:'Operatore',ente_referente:'Istituzione Referente',public:'Utente'}[u.role];
 
   $('#app').innerHTML = `
     <div class="app-container">
@@ -564,7 +564,7 @@ function renderRegister() {
           <div class="form-group"><label>Ruolo</label>
             <select id="reg-role">
               <option value="org_admin">Responsabile organizzazione</option>
-              <option value="ente_referente">Ente referente</option>
+              <option value="ente_referente">Istituzione referente</option>
               <option value="public">Utente pubblico</option>
             </select>
           </div>
@@ -1939,7 +1939,7 @@ async function showBeneficiaryReportModal() {
   // Raccogli enti invianti unici dall'API (più affidabile del DOM)
   const bens = await api('/beneficiaries') || [];
   const entities = [...new Set(
-    bens.map(b => (b.referring_entity || '').trim()).filter(e => e)
+    bens.map(b => (b.referring_entity || '').replace(/\s+/g, ' ').trim()).filter(e => e)
   )].sort();
 
   const overlay = document.createElement('div');
@@ -2050,9 +2050,9 @@ function showAddBeneficiaryModal() {
               ${Object.entries(TARGET_LABELS).map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}</select></div>
             <div class="form-group"><label>Ente inviante</label><input id="ben-entity" placeholder="es. CSM Piacenza"></div>
             <div class="form-group"><label>Contatto ente</label><input id="ben-contact" placeholder="es. Dott.ssa Bruni"></div>
-            <div class="form-group"><label>Ente referente collegato</label>
+            <div class="form-group"><label>Istituzione referente collegata</label>
               <select id="ben-ente-user"><option value="">Nessuno (ente non registrato)</option></select>
-              <div style="font-size:11px;color:#888;margin-top:4px">Collega un ente referente registrato sulla piattaforma per dargli accesso al monitoraggio</div>
+              <div style="font-size:11px;color:#888;margin-top:4px">Collega una istituzione referente registrata sulla piattaforma per darle accesso al monitoraggio</div>
             </div>
             <div class="form-group"><label>Data inizio</label><input type="date" id="ben-start"></div>
             <div class="form-group"><label>Note</label><textarea id="ben-notes"></textarea></div>
@@ -2124,7 +2124,7 @@ async function showBeneficiaryDetail(benId) {
           <div><strong>Ente inviante:</strong> ${sanitize(ben.referring_entity) || '—'}</div>
           <div><strong>Data inizio:</strong> ${formatDate(ben.start_date) || '—'}</div>
           <div><strong>Contatto ente:</strong> ${sanitize(ben.referring_contact) || '—'}</div>
-          ${ben.ente_referente_name ? `<div style="grid-column:1/-1"><strong>Ente referente collegato:</strong> ${sanitize(ben.ente_referente_name)}${ben.ente_referente_email ? ` (${sanitize(ben.ente_referente_email)})` : ''}</div>` : ''}
+          ${ben.ente_referente_name ? `<div style="grid-column:1/-1"><strong>Istituzione referente collegata:</strong> ${sanitize(ben.ente_referente_name)}${ben.ente_referente_email ? ` (${sanitize(ben.ente_referente_email)})` : ''}</div>` : ''}
         </div>
         ${ben.notes ? `<div style="margin-bottom:16px;font-size:14px"><strong>Note:</strong> ${sanitize(ben.notes)}</div>` : ''}
 
@@ -2314,12 +2314,12 @@ async function showEditBeneficiaryModal(benId) {
       <div class="form-group" style="margin-bottom:12px"><label>Contatto ente</label>
         <input id="eb-contact" value="${sanitize(b.referring_contact||'')}" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px">
       </div>
-      <div class="form-group" style="margin-bottom:12px"><label>Ente referente collegato</label>
+      <div class="form-group" style="margin-bottom:12px"><label>Istituzione referente collegata</label>
         <select id="eb-ente-user" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px">
           <option value="">Nessuno (ente non registrato)</option>
           ${enti.map(e => `<option value="${e.id}" ${e.id===b.ente_user_id?'selected':''}>${sanitize(e.last_name)} ${sanitize(e.first_name)} — ${sanitize(e.email)}</option>`).join('')}
         </select>
-        <div style="font-size:11px;color:#888;margin-top:4px">Collega un ente referente registrato per dargli accesso al monitoraggio</div>
+        <div style="font-size:11px;color:#888;margin-top:4px">Collega una istituzione referente registrata per darle accesso al monitoraggio</div>
       </div>
       <div class="form-group" style="margin-bottom:12px"><label>Data inizio</label>
         <input type="date" id="eb-start" value="${b.start_date||''}" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px">
@@ -3035,7 +3035,7 @@ async function renderAdmin() {
   `;
 }
 
-const ROLE_LABELS = { admin:'Amministratore', auditor:'Auditor', org_admin:'Admin Organizzazione', org_operator:'Operatore', ente_referente:'Ente Referente' };
+const ROLE_LABELS = { admin:'Amministratore', auditor:'Auditor', org_admin:'Admin Organizzazione', org_operator:'Operatore', ente_referente:'Istituzione Referente' };
 
 async function downloadBackup() {
   try {

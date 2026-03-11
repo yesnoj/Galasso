@@ -375,16 +375,20 @@ SISTEMA
 
 | Area | Req. | Titolo | Evidenze accettabili |
 |------|------|--------|---------------------|
-| 1. Identità e trasparenza | 1.1 | Definizione servizi | Descrizione servizi, documento interno, materiale informativo |
-| | 1.2 | Responsabile servizi | Nomina formale, organigramma, dichiarazione |
-| 2. Gestione attività sociali | 2.1 | Progettazione attività | Progetti individuali, convenzioni, accordi |
+| 1. Identità e trasparenza | 1.1 | Soggetto legittimato | Visura camerale, iscrizione albo regionale (se previsto) |
+| | 1.2 | Definizione servizi | Descrizione servizi, documento interno, materiale informativo, sito web |
+| | 1.3 | Responsabile servizi | Nomina formale, organigramma, dichiarazione |
+| 2. Gestione attività sociali | 2.1 | Progettazione attività | Progetti individuali, convenzioni, accordi con enti/associazioni, progetti collettivi |
 | | 2.2 | Monitoraggio attività | Registro, report, note di monitoraggio |
-| | 2.3 | Impegno all'inclusione | Dichiarazione scritta, politica interna |
-| 3. Sicurezza e tutela | 3.1 | Sicurezza sul lavoro | Autocertificazione, documentazione sicurezza |
-| | 3.2 | Tutela persone | Procedure, modalità operative |
-| 4. Competenze e organizzazione | 4.1 | Competenze | CV, formazione, esperienza documentata |
-| | 4.2 | Organizzazione | Organigramma, descrizione ruoli |
-| 5. Impegno alla qualità | 5.1 | Impegno formale | Dichiarazione firmata |
+| | 2.3 | Impegno all'inclusione | Dichiarazione di impegno, politica inclusione/non discriminazione |
+| 3. Sicurezza e tutela | 3.1 | Conformità strutturale | Titolo disponibilità locali, documentazione edilizia, igienico-sanitaria |
+| | 3.2 | Sicurezza sul lavoro | Autocertificazione, documentazione sicurezza (DVR) |
+| | 3.3 | Tutela persone | Procedure tutela, modalità operative, supervisione |
+| | 3.4 | Affidabilità e onorabilità | Dichiarazione assenza cause interdittive |
+| 4. Competenze e organizzazione | 4.1 | Competenze | Attestato formazione, esperienza ≥2 anni documentata |
+| | 4.2 | Organizzazione | Organigramma, mansionari, descrizione ruoli |
+| 5. Impegno alla qualità | 5.1 | Impegno formale | Dichiarazione firmata, politica qualità |
+| | 5.2 | Aggiornamento documentale | Registro aggiornamenti, archivio, evidenza annuale |
 
 ---
 
@@ -502,7 +506,7 @@ SISTEMA
 
 ## Ruoli e permessi
 
-| Funzionalità | Admin | Auditor | Org Admin | Operatore | Ente Ref. |
+| Funzionalità | Admin | Auditor | Org Admin | Operatore | Istit. Ref. |
 |-------------|:-----:|:-------:|:---------:|:---------:|:---------:|
 | Dashboard completa | ✅ | ✅ | ✅* | ✅* | ✅ |
 | Creare organizzazione | ❌ | ❌ | ✅ | ❌ | ❌ |
@@ -690,9 +694,9 @@ docker restart gcf-platform
 | Operatore | `chiara.esposito@terrabuona.it` | `oper1234` | Terra Buona | ✅ Certificata |
 | Operatore | `davide.colombo@ilvigneto.it` | `oper1234` | Il Vigneto | ✅ Certificata |
 | Operatore | `sara.neri@collina.it` | `oper1234` | La Collina (Toscana) | ✅ Certificata |
-| Ente Referente | `silvia.gallo@csmpiacenza.it` | `ente1234` | — | Vede TB-001/004 |
-| Ente Referente | `roberto.fontana@csmparma.it` | `ente1234` | — | Vede VG-003 |
-| Ente Referente | `chiara.martini@aslarezzo.it` | `ente1234` | — | Vede LC-003 |
+| Istituzione Referente | `silvia.gallo@csmpiacenza.it` | `ente1234` | — | Vede TB-001/004 |
+| Istituzione Referente | `roberto.fontana@csmparma.it` | `ente1234` | — | Vede VG-003 |
+| Istituzione Referente | `chiara.martini@aslarezzo.it` | `ente1234` | — | Vede LC-003 |
 | Utente pubblico | `giovanna.marino@gmail.com` | `user1234` | — | — |
 
 > ⚠️ Queste credenziali sono solo per demo/test. Cambiarle in produzione.
@@ -700,6 +704,19 @@ docker restart gcf-platform
 ---
 
 ## Changelog
+
+### v2.3 — Marzo 2026 (Checklist audit, rinomina ruolo)
+
+**Checklist audit — Aggiornamento evidenze**
+- Req. 1.1: evidenze ridotte a "Visura camerale" + "Iscrizione albo regionale (se previsto)"
+- Req. 1.2: aggiunto "Sito web" tra gli elementi di verifica
+- Req. 2.1: "Accordi con enti" → "Accordi con enti/associazioni"; "Documentazione equivalente" → "Progetti collettivi"
+- Req. 2.3: "Dichiarazione scritta" → "Dichiarazione di impegno"
+
+**Rinomina ruolo: "Ente Referente" → "Istituzione Referente"**
+- Aggiornate tutte le etichette visibili nella piattaforma (sidebar, form, popup, registrazione)
+- Il nome tecnico del ruolo nel database (`ente_referente`) e il campo (`ente_user_id`) restano invariati per compatibilità
+- Documentazione (README, diagramma ruoli, guida operativa) aggiornata
 
 ### v2.2 — Marzo 2026 (Ruoli operatore, regole business, documenti audit)
 
@@ -721,7 +738,7 @@ docker restart gcf-platform
 - Mostra nome file, dimensione, autore, data e pulsante download
 
 **Miglioramenti UX**
-- Ente referente: pulsante "← Torna ai beneficiari" (invece di "Torna alle organizzazioni") nel dettaglio org
+- Istituzione referente: pulsante "← Torna ai beneficiari" (invece di "Torna alle organizzazioni") nel dettaglio org
 - Rimossa funzionalità "foto principale" (badge ⭐ e pulsante) dalla galleria foto
 - Operatore: messaggio dashboard "Nessuna certificazione attiva" (senza link "Fai domanda")
 - Report Excel: disponibile anche per org con beneficiari pre-esistenti
@@ -730,9 +747,9 @@ docker restart gcf-platform
 - 17 utenti, 7 organizzazioni su 3 regioni (Emilia-Romagna, Toscana, Piemonte)
 - 3 org certificate (issued) con beneficiari e attività, 2 in corso (audit_completed, submitted), 2 pending
 - Tutte le regole di business rispettate: zero beneficiari su org non certificate
-- 3 enti referenti collegati ai beneficiari, 3 operatori collegati alle rispettive org
+- 3 istituzioni referenti collegate ai beneficiari, 3 operatori collegati alle rispettive org
 
-### v2.1 — Marzo 2026 (Foto, Ente Referente, Validazioni)
+### v2.1 — Marzo 2026 (Foto, Istituzione Referente, Validazioni)
 
 **Galleria foto organizzazione**
 - Upload immagini JPG/PNG/WebP (max 5MB, max 10 per organizzazione)
@@ -741,11 +758,11 @@ docker restart gcf-platform
 - Galleria visibile anche nel **registro pubblico**
 - Immagini salvate in `uploads/images/` e incluse nel backup automatico
 
-**Ente referente collegato ai beneficiari**
+**Istituzione referente collegata ai beneficiari**
 - Nuovo campo `ente_user_id` nella tabella beneficiari
-- Dropdown "Ente referente collegato" nel form creazione e modifica beneficiario
-- L'ente referente accede e vede **solo** i beneficiari collegati al suo utente
-- Nome ente referente visibile nel popup dettaglio beneficiario
+- Dropdown "Istituzione referente collegata" nel form creazione e modifica beneficiario
+- L'istituzione referente accede e vede **solo** i beneficiari collegati al suo utente
+- Nome istituzione referente visibile nel popup dettaglio beneficiario
 - Migrazione automatica per DB esistenti (ALTER TABLE)
 
 **Validazione Codice Fiscale e Partita IVA**
@@ -793,7 +810,7 @@ docker restart gcf-platform
 - Admin: **sola lettura** su beneficiari e attività (niente creazione/modifica/elimina)
 - Admin: **non può caricare** documenti di certificazione (solo l'organizzazione)
 - Admin: **non crea** organizzazioni (solo modifica e cambio stato)
-- Ente referente: **sola lettura** — nessun pulsante modifica visibile
+- Istituzione referente: **sola lettura** — nessun pulsante modifica visibile
 - Org admin: vede **solo la propria** organizzazione
 - Operatore: **non può richiedere** certificazione (solo org admin)
 - Pulsante "Torna alla certificazione" (invece di "Torna agli audit") per ruoli org
