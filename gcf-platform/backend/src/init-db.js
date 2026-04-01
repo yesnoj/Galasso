@@ -218,6 +218,14 @@ async function main() {
   });
 
   console.log('Dati di riferimento inseriti (5 aree, 14 requisiti SNM-AS).');
+
+  // Admin di default — creato solo se non esiste già
+  const bcrypt = require('bcryptjs');
+  const { v4: uuidv4 } = require('uuid');
+  const adminHash = bcrypt.hashSync('admin123', 10);
+  db.prepare("INSERT OR IGNORE INTO users (id, email, password_hash, role, first_name, last_name, is_active, email_verified) VALUES (?, ?, ?, 'admin', 'Admin', 'AICARE', 1, 1)").run('admin-default-id', 'admin@gcf.it', adminHash);
+  console.log('Admin di default creato.');
+
   closeDb();
   console.log('Database inizializzato:', require('path').resolve(process.env.DB_PATH || './db/gcf.sqlite'));
 }
